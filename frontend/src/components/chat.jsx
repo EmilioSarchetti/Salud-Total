@@ -1,16 +1,15 @@
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
-import { sicket } from "../socket.js";
-import { use } from "react";
+import { socket } from "./socket.js";
 
-const API_URL = import.meta.env.VITE_API_URLM;
+const API_URL = import.meta.env.VITE_API_URL;
 
 function Chat({ usuario, receptor, conversacionId: propConversacionId }) {
-    const [mensajes, setMensajes] = useState([]);
-    const [nuevoMensaje, setNuevoMensaje] = useState("");
-    const [conversacionId, setConversacionId] = useState(propConversacionId || null);
-    const chatEndRef = useRef(null);
-    const socketInicializado = useRef(false);
+  const [mensajes, setMensajes] = useState([]);
+  const [nuevoMensaje, setNuevoMensaje] = useState("");
+  const [conversacionId, setConversacionId] = useState(propConversacionId || null);
+  const chatEndRef = useRef(null);
+  const socketInicializado = useRef(false);
 
  useEffect(() => {
     const cargarConversacion = async () => {
@@ -43,7 +42,7 @@ function Chat({ usuario, receptor, conversacionId: propConversacionId }) {
           setMensajes(mensajesRes.data);
         }
       } catch (err) {
-        console.error("❌ Error al cargar conversación:", err);
+        console.error("Error al cargar conversación:", err);
       }
     };
 
@@ -53,7 +52,7 @@ function Chat({ usuario, receptor, conversacionId: propConversacionId }) {
   useEffect(() => {
     if (!usuario || socketInicializado.current) return;
     socketInicializado.current = true;
-// Evita duplicación si el mensaje ya está
+    // Evita duplicación si el mensaje ya está
     const handleNuevoMensaje = (msg) => {
       setMensajes((prev) => {
         if (prev.some((m) => m.id === msg.id)) return prev;
@@ -163,5 +162,5 @@ function Chat({ usuario, receptor, conversacionId: propConversacionId }) {
       )}
     </div>
   );
-
 }
+export default Chat;
