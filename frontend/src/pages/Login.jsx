@@ -27,7 +27,7 @@ function Login() {
         return;
       }
 
-      // Redirección según tipo
+      // Redirección según tipo de usuario
       switch (usuario.tipo) {
         case 'paciente':
           navigate('/paciente-dashboard', { state: { usuario } });
