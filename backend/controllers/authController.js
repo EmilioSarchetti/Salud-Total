@@ -8,10 +8,8 @@ exports.registro = (req, res) => {
         return res.status(400).json({ mensaje: 'Solo se puede registrar como paciente desde esta vía.' });
     }
 
-    const sql = `
-        INSERT INTO usuarios (nombre, apellido, email, contrasena, tipo, obra_social, detalles_extras)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
+    const sql = `INSERT INTO usuarios (nombre, apellido, email, contrasena, tipo, obra_social, detalles_extras)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
     db.query(sql, [nombre, apellido, email, contrasena, tipo, obra_social, detalles_extras], (err, resultado) => {
         if (err) {
