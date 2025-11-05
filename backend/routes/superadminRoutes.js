@@ -1,20 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const superadminController = require('../controllers/superadminController');
+const verificarToken = require('../middleware/authMiddleware'); // 👈 importá middleware
 
-//médicos por especialidad
-router.get('/medicos-por-especialidad/:especialidad', superadminController.listarMedicosPorEspecialidad);
+//todas las rutas de superadmin requieren token
+router.use(verificarToken);
 
-//pacientes atendidos por médico
+//medicos por especialidad
+router.get('/medicos-por-especialidad/:especialidadId', superadminController.listarMedicosPorEspecialidad);
+
+//pacientes atendidos por medico
 router.get('/pacientes-atendidos/:medicoId', superadminController.contarPacientesAtendidos);
 
 //registrar nuevo médico
 router.post('/registrar-medico', superadminController.registrarMedico);
 
-//formularios médicos (por nombre paciente o médico)
+//formularios médicos (por nombre paciente o medico)
 router.get('/formularios', superadminController.obtenerFormularios);
 
 router.post('/crear-admin', superadminController.crearSecretario);
 
-module.exports = router;
 
+module.exports = router;
