@@ -1,5 +1,7 @@
-const db = require('../models/db');
+const db = require("../models/db");
+const bcrypt = require("bcrypt");
 
+// 1.listar médicos por especialidad
 exports.listarMedicosPorEspecialidad = (req, res) => {
   const especialidadId = req.params.especialidadId;
 
@@ -13,13 +15,13 @@ exports.listarMedicosPorEspecialidad = (req, res) => {
   db.query(sql, [especialidadId], (err, resultados) => {
     if (err) {
       console.error("Error al listar médicos:", err);
-      return res.status(500).json({ mensaje: 'Error al listar médicos.' });
+      return res.status(500).json({ mensaje: "Error al listar médicos." });
     }
     res.status(200).json(resultados);
   });
 };
 
-
+// 2.contar pacientes atendidos (filtrando por fecha)
 exports.contarPacientesAtendidos = (req, res) => {
   const medicoId = req.params.medicoId;
   const { desde, hasta } = req.query;
@@ -32,99 +34,122 @@ exports.contarPacientesAtendidos = (req, res) => {
   const params = [medicoId];
 
   if (desde && hasta) {
-    sql += ' AND fecha BETWEEN ? AND ?';
+    sql += " AND fecha BETWEEN ? AND ?";
     params.push(desde, hasta);
   }
 
   db.query(sql, params, (err, resultados) => {
     if (err) {
       console.error("Error al contar pacientes:", err);
-      return res.status(500).json({ mensaje: 'Error al contar pacientes.' });
+      return res
+        .status(500)
+        .json({ mensaje: "Error al contar pacientes atendidos." });
     }
     res.status(200).json(resultados[0]);
   });
 };
 
+// 3.registrar nuevo médico (con hash + especialidades + horarios)
+exports.registrarMedico = async (req, res) => {
+  try {
+    const { nombre, apellido, email, contrasena, especialidades, horarios } = req.body;
 
-exports.registrarMedico = (req, res) => {
-  const { nombre, apellido, email, contrasena, especialidades, horarios } = req.body;
+    if (!nombre || !apellido || !email || !contrasena) {
+      return res.status(400).json({ mensaje: "Faltan campos obligatorios." });
+    }
 
-  if (!nombre || !apellido || !email || !contrasena) {
-    return res.status(400).json({ mensaje: 'Faltan campos obligatorios.' });
+    //hashear contraseña
+    const hash = await bcrypt.hash(contrasena, 10);
+
+    const sqlUsuario = `
+      INSERT INTO usuarios (nombre, apellido, email, contrasena, tipo)
+      VALUES (?, ?, ?, ?, 'medico')
+    `;
+
+    db.query(sqlUsuario, [nombre, apellido, email, hash], (err, resultado) => {
+      if (err) {
+        console.error("Error al registrar médico:", err);
+        return res
+          .status(500)
+          .json({ mensaje: "Error al registrar médico en usuarios." });
+      }
+
+      const medicoId = resultado.insertId;
+
+      //asignar especialidades
+      if (Array.isArray(especialidades) && especialidades.length > 0) {
+        const sqlEspecialidad = `
+          INSERT INTO medico_especialidades (medico_id, especialidad_id)
+          VALUES ?
+        `;
+        const valoresEspecialidad = especialidades.map((id) => [medicoId, id]);
+
+        db.query(sqlEspecialidad, [valoresEspecialidad], (err2) => {
+          if (err2)
+            console.warn("Error al asignar especialidades:", err2.message);
+        });
+      }
+
+      //registrar horarios
+      if (Array.isArray(horarios) && horarios.length > 0) {
+        const sqlHorario = `
+          INSERT INTO horarios_medicos (medico_id, dia_semana, hora_inicio, hora_fin)
+          VALUES ?
+        `;
+        const valoresHorarios = horarios.map((h) => [
+          medicoId,
+          h.dia_semana,
+          h.hora_inicio,
+          h.hora_fin,
+        ]);
+
+        db.query(sqlHorario, [valoresHorarios], (err3) => {
+          if (err3)
+            console.warn("Error al registrar horarios:", err3.message);
+        });
+      }
+
+      res.status(201).json({ mensaje: "Médico registrado correctamente." });
+    });
+  } catch (error) {
+    console.error("Error general al registrar médico:", error);
+    res.status(500).json({ mensaje: "Error del servidor al registrar médico." });
   }
-
-  const sqlUsuario = `
-    INSERT INTO usuarios (nombre, apellido, email, contrasena, tipo)
-    VALUES (?, ?, ?, ?, 'medico')
-  `;
-
-  db.query(sqlUsuario, [nombre, apellido, email, contrasena], (err, resultado) => {
-    if (err) {
-      console.error("Error al registrar médico:", err);
-      return res.status(500).json({ mensaje: 'Error al registrar médico.' });
-    }
-
-    const medicoId = resultado.insertId;
-
-    // Asignar especialidades (si existen)
-    if (Array.isArray(especialidades) && especialidades.length > 0) {
-      const sqlEspecialidad = `
-        INSERT INTO medico_especialidades (medico_id, especialidad_id)
-        VALUES ?
-      `;
-      const valoresEspecialidad = especialidades.map(id => [medicoId, id]);
-
-      db.query(sqlEspecialidad, [valoresEspecialidad], (err2) => {
-        if (err2) {
-          console.error("Error al asignar especialidades:", err2);
-          return res.status(500).json({ mensaje: 'Error al asignar especialidades.' });
-        }
-      });
-    }
-
-    // Registrar horarios (si existen)
-    if (Array.isArray(horarios) && horarios.length > 0) {
-      const sqlHorario = `
-        INSERT INTO horarios_medicoes (medico_id, dia_semana, hora_inicio, hora_fin)
-        VALUES ?
-      `;
-      const valoresHorarios = horarios.map(h => [medicoId, h.dia_semana, h.hora_inicio, h.hora_fin]);
-
-      db.query(sqlHorario, [valoresHorarios], (err3) => {
-        if (err3) {
-          console.error("Error al registrar horarios:", err3);
-          return res.status(500).json({ mensaje: 'Error al registrar horarios.' });
-        }
-      });
-    }
-
-    res.status(201).json({ mensaje: 'Médico registrado correctamente.' });
-  });
 };
 
+//4.registrar nuevo secretario (rol admin, con hash)
+exports.crearSecretario = async (req, res) => {
+  try {
+    const { nombre, apellido, email, contrasena } = req.body;
 
-exports.crearSecretario = (req, res) => {
-  const { nombre, apellido, email, contrasena } = req.body;
-
-  if (!nombre || !apellido || !email || !contrasena) {
-    return res.status(400).json({ mensaje: 'Faltan campos obligatorios.' });
-  }
-
-  const sql = `
-    INSERT INTO usuarios (nombre, apellido, email, contrasena, tipo)
-    VALUES (?, ?, ?, ?, 'admin')
-  `;
-
-  db.query(sql, [nombre, apellido, email, contrasena], (err) => {
-    if (err) {
-      console.error("Error al registrar secretario:", err);
-      return res.status(500).json({ mensaje: 'Error al registrar secretario.' });
+    if (!nombre || !apellido || !email || !contrasena) {
+      return res.status(400).json({ mensaje: "Faltan campos obligatorios." });
     }
-    res.status(201).json({ mensaje: 'Secretario creado correctamente.' });
-  });
+
+    //hashear contraseña
+    const hash = await bcrypt.hash(contrasena, 10);
+
+    const sql = `
+      INSERT INTO usuarios (nombre, apellido, email, contrasena, tipo)
+      VALUES (?, ?, ?, ?, 'admin')
+    `;
+
+    db.query(sql, [nombre, apellido, email, hash], (err) => {
+      if (err) {
+        console.error("Error al registrar secretario:", err);
+        return res
+          .status(500)
+          .json({ mensaje: "Error al registrar secretario." });
+      }
+      res.status(201).json({ mensaje: "Secretario creado correctamente." });
+    });
+  } catch (error) {
+    console.error("Error general al crear secretario:", error);
+    res.status(500).json({ mensaje: "Error del servidor al crear secretario." });
+  }
 };
 
-
+// 5.obtener formularios (por nombre o email del médico)
 exports.obtenerFormularios = (req, res) => {
   const { nombre_completo, medico_email } = req.query;
 
@@ -139,21 +164,23 @@ exports.obtenerFormularios = (req, res) => {
   const params = [];
 
   if (nombre_completo) {
-    sql += ' AND f.nombre_completo LIKE ?';
+    sql += " AND f.nombre_completo LIKE ?";
     params.push(`%${nombre_completo}%`);
   }
 
   if (medico_email) {
-    sql += ' AND u.email LIKE ?';
+    sql += " AND u.email LIKE ?";
     params.push(`%${medico_email}%`);
   }
 
-  sql += ' ORDER BY f.fecha DESC';
+  sql += " ORDER BY f.fecha DESC";
 
   db.query(sql, params, (err, resultados) => {
     if (err) {
       console.error("Error al obtener formularios:", err);
-      return res.status(500).json({ mensaje: 'Error al obtener formularios.' });
+      return res
+        .status(500)
+        .json({ mensaje: "Error al obtener formularios." });
     }
     res.status(200).json(resultados);
   });
