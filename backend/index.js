@@ -43,7 +43,7 @@ io.on("connection", (socket) => {
 
     // Cada usuario tiene su propia sala
     socket.join(`user_${userId}`);
-    console.log(`➡ ${tipo} ${userId} unido a sala user_${userId}`);
+    console.log(`-- ${tipo} ${userId} unido a sala user_${userId}`);
 
     // Los administradores también escuchan la sala global
     if (tipo === "admin") {
@@ -73,7 +73,7 @@ app.use("/api/superadmin", require("./routes/superadminRoutes"));
 //inicia el servidor
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, "0.0.0.0", () =>
-  console.log(`✅ Backend corriendo en http://localhost:${PORT}`)
+  console.log(`Backend corriendo en http://localhost:${PORT}`)
 );
 
 // Exportamos io si se necesita en otros módulos

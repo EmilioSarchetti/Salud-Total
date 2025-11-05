@@ -3,7 +3,7 @@ const chatController = require("../controllers/chatController");
 
 module.exports = (io) => {
   const router = express.Router();
-  const { enviarMensaje, obtenerConversacion, obtenerChatsUsuario, asignarAdmin } = chatControllerFactory(io);
+  const { enviarMensaje, obtenerConversacion, obtenerChatsUsuario, asignarAdmin } = chatController(io);
 
   //rutas de endpoints de chat
   router.post("/enviar", enviarMensaje);
