@@ -37,7 +37,7 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log("Cliente conectado:", socket.id);
 
-  // Registrar usuario (paciente / admin)
+  // Registrar usuario
   socket.on("registrarUsuario", (userId, tipo) => {
     if (!userId) return;
 
@@ -68,7 +68,7 @@ app.use("/api/pacientes", require("./routes/pacienteRoutes"));
 app.use("/api/medicoes", require("./routes/medicoRoutes"));
 app.use("/api/turno", require("./routes/turnoRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
-app.use("/api/superadmin", require("./routes/superadminRoutes")); // 🔹 NUEVA si no la agregaste
+app.use("/api/superadmin", require("./routes/superadminRoutes"));
 
 //inicia el servidor
 const PORT = process.env.PORT || 3001;
