@@ -179,7 +179,7 @@ useEffect(() => {
     }
   };
 
-    // Crear formularios clínicos
+    // Formularios clínicos: crear
     const enviarFormulario = async () => {
     if (!nombrePaciente.trim()) {
       setMensajeFormulario('Ingrese el nombre del paciente.');
@@ -206,4 +206,393 @@ useEffect(() => {
       setMensajeFormulario('Error al enviar el formulario.');
     }
   };
+
+  // Formularios clínicos: buscar por nombre
+  const buscarFormularios = async () => {
+    if (!nombrePaciente.trim()) {
+      setMensajeFormulario('Ingrese un nombre a buscar.');
+      return;
+    }
+
+    try {
+      const res = await axios.get(
+        `${API_URL}/api/medicoes/formularios-nombre/${encodeURIComponent(
+          nombrePaciente.trim()
+        )}`
+      );
+
+// res.data puede ser array, o puede venir 1 solo objeto según el backend
+      const data = Array.isArray(res.data) ? res.data : [res.data];
+
+      setListaVisible(data);
+      if (!data.length) {
+        setMensajeFormulario('No se encontraron formularios.');
+      } else {
+        setMensajeFormulario('');
+      }
+    } catch (err) {
+      // puede venir 404 si no hay resultados
+      if (err.response && err.response.status === 404) {
+        setListaVisible([]);
+        setMensajeFormulario('No se encontraron formularios.');
+      } else {
+        console.error(err);
+        setMensajeFormulario('Error al buscar formularios.');
+      }
+    }
+  };
+
+  // Formularios clínicos: ver mis formularios
+  const obtenerFormulariosDelmedico = async () => {
+    try {
+      const res = await axios.get(
+        `${API_URL}/api/medicoes/formularios/${medico.id}`
+      );
+
+      setListaVisible(res.data || []);
+      setMensajeFormulario('');
+    } catch (err) {
+      console.error(err);
+      setListaVisible([]);
+      setMensajeFormulario('Error al obtener formularios del medico.');
+    }
+  };
+
+   // Formularios clínicos: edición
+const empezarEdicion = (form) => {
+    setEditarFormularioId(form.id);
+    setFormularioEditado(form.contenido || '');
+    setMensajeFormulario(
+      `Editando el formulario de "${form.nombre_completo}" (ID ${form.id})`
+    );
+  };
+
+  // Formularios clínicos: guardar edición 
+  const guardarEdicionFormulario = async () => {
+    if (!editarFormularioId) return;
+
+    try {
+      const fecha = new Date().toLocaleDateString('es-AR');
+      const nuevoMotivo = prompt('Nuevo motivo de consulta:') || 'Sin motivo';
+      const nuevoTratamiento =
+        prompt('Nuevo tratamiento:') || 'Sin tratamiento';
+
+      const nuevaEntrada =
+        `\n---\nFecha: ${fecha}\nMotivo: ${nuevoMotivo}\nTratamiento: ${nuevoTratamiento}\n`;
+
+      const nuevoContenido = `${formularioEditado}${nuevaEntrada}`;
+
+      await axios.put(
+        `${API_URL}/api/medicoes/formulario/${editarFormularioId}`,
+        {
+          contenido: nuevoContenido
+        }
+      );
+
+      setMensajeFormulario('Formulario actualizado correctamente.');
+      setEditarFormularioId(null);
+      setFormularioEditado('');
+
+      // refrescar la lista visible
+      obtenerFormulariosDelmedico();
+    } catch (err) {
+      console.error(err);
+      alert('Error al editar el formulario.');
+    }
+  };
+
+// RENDER
+return (
+    <div className="container">
+      {/* logout */}
+      <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
+        <button onClick={handleLogout}>Cerrar sesión</button>
+      </div>
+
+      <h2>
+        Panel del medico/a {medico?.nombre} {medico?.apellido}
+      </h2>
+
+      <div className="tabs-container">
+        {/* ---------- TABS ---------- */}
+        <div className="tabs-header">
+          <button
+            className={`tab-btn ${activeTab === 'turnos' ? 'active' : ''}`}
+            onClick={() => setActiveTab('turnos')}
+          >
+            Turnos
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'horarios' ? 'active' : ''}`}
+            onClick={() => setActiveTab('horarios')}
+          >
+            Horarios
+          </button>
+          <button
+            className={`tab-btn ${
+              activeTab === 'formularios' ? 'active' : ''
+            }`}
+            onClick={() => setActiveTab('formularios')}
+          >
+            Formularios
+          </button>
+          <button
+            className={`tab-btn ${
+              activeTab === 'password' ? 'active' : ''
+            }`}
+            onClick={() => setActiveTab('password')}
+          >
+            Contraseña
+          </button>
+        </div>
+
+        {/*CONTENIDO DE CADA TAB*/}
+        <div className="tab-content">
+          {/* TAB TURNOS */}
+          {activeTab === 'turnos' && (
+            <>
+              <h3>Gestión de Turnos</h3>
+
+              <label>Filtrar por fecha:</label>
+              <input type="date" value={filtroFecha} onChange={cambiarFecha} />
+
+              {mensaje && <p className="ok-msg">{mensaje}</p>}
+              {error && <p className="err-msg">{error}</p>}
+
+              {turnos.map((turno) => (
+                <div key={turno.id} className="card">
+                  <p>
+                    <strong>Paciente:</strong> {turno.paciente_nombre}{' '}
+                    {turno.paciente_apellido}
+                  </p>
+                  <p>
+                    <strong>Fecha:</strong>{' '}
+                    {new Date(turno.fecha).toLocaleDateString('es-AR')}
+                  </p>
+                  <p>
+                    <strong>Hora:</strong> {turno.hora}
+                  </p>
+                  <p>
+                    <strong>Estado:</strong> {turno.estado}
+                  </p>
+
+                  <select
+                    value={turno.estado}
+                    onChange={(e) =>
+                      cambiarEstado(turno.id, e.target.value)
+                    }
+                  >
+                    <option value="en espera">En Espera</option>
+                    <option value="confirmado">Confirmado</option>
+                    <option value="cancelado">Cancelado</option>
+                    <option value="atendido">Atendido</option>
+                  </select>
+                </div>
+              ))}
+
+              {turnos.length === 0 && (
+                <p>No hay turnos para esa fecha.</p>
+              )}
+            </>
+          )}
+
+          {/* TAB HORARIOS */}
+          {activeTab === 'horarios' && (
+            <>
+              <h3>Horarios de Atención</h3>
+
+              {horarios.map((h, i) => (
+                <div key={i} className="card">
+                  <p>
+                    {h.dia_semana} — {h.hora_inicio} a {h.hora_fin}
+                  </p>
+                  <button
+                    onClick={() => eliminarHorario(i)}
+                    style={{ marginLeft: '1rem' }}
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              ))}
+
+              {horarios.length === 0 && (
+                <p>Aún no cargaste horarios.</p>
+              )}
+
+              <div className="inline-form">
+                <select
+                  value={nuevoHorario.dia_semana}
+                  onChange={(e) =>
+                    actualizarHorario('dia_semana', e.target.value)
+                  }
+                >
+                  <option value="">Día</option>
+                  {[
+                    'Lunes',
+                    'Martes',
+                    'Miércoles',
+                    'Jueves',
+                    'Viernes',
+                    'Sábado'
+                  ].map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  type="time"
+                  value={nuevoHorario.hora_inicio}
+                  onChange={(e) =>
+                    actualizarHorario('hora_inicio', e.target.value)
+                  }
+                />
+                <input
+                  type="time"
+                  value={nuevoHorario.hora_fin}
+                  onChange={(e) =>
+                    actualizarHorario('hora_fin', e.target.value)
+                  }
+                />
+
+                <button onClick={guardarHorarios}>Agregar Horario</button>
+              </div>
+            </>
+          )}
+
+          {/*TAB FORMULARIOS */}
+          {activeTab === 'formularios' && (
+            <>
+              <h3>Formularios Médicos / Historial Clínico</h3>
+
+              {/* CREAR NUEVO FORMULARIO */}
+              <div className="card">
+                <p className="section-title">
+                  Nuevo formulario / evolución
+                </p>
+                <input
+                  type="text"
+                  placeholder="DNI"
+                  value={nombrePaciente}
+                  onChange={(e) => setNombrePaciente(e.target.value)}
+                />
+                <textarea
+                  rows={10}
+                  cols={50}
+                  value={formulario}
+                  onChange={(e) => setFormulario(e.target.value)}
+                />
+
+                <button onClick={enviarFormulario}>
+                  Guardar en historial
+                </button>
+              </div>
+
+              {/* BUSCAR / VER MIS PACIENTES */}
+              <div className="inline-form">
+                <button onClick={buscarFormularios}>
+                  Buscar por nombre del paciente
+                </button>
+                <button onClick={obtenerFormulariosDelmedico}>
+                  Ver mis formularios
+                </button>
+              </div>
+
+              {mensajeFormulario && (
+                <p className="info-msg">{mensajeFormulario}</p>
+              )}
+
+              {/* LISTA VISIBLE DE FORMULARIOS */}
+              {listaVisible.map((f) => (
+                <div key={f.id} className="card">
+                  <p>
+                    <strong>Paciente:</strong> {f.nombre_completo}
+                  </p>
+                  <p>
+                    <strong>Fecha:</strong>{' '}
+                    {f.fecha
+                      ? new Date(f.fecha).toLocaleString('es-AR')
+                      : '—'}
+                  </p>
+
+                  <pre
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      background: '#f6f6f6ff',
+                      padding: '0.5rem',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    {f.contenido}
+                  </pre>
+
+                  <button onClick={() => empezarEdicion(f)}>
+                    Editar / Agregar nota
+                  </button>
+                </div>
+              ))}
+
+              {listaVisible.length === 0 && (
+                <p>No hay formularios para mostrar.</p>
+              )}
+
+              {/* BLOQUE DE EDICIÓN ACTIVA */}
+              {editarFormularioId && (
+                <div className="card warning-box">
+                  <p>
+                    <strong>
+                      Editando Formulario #{editarFormularioId}
+                    </strong>
+                  </p>
+                  <textarea
+                    rows={8}
+                    cols={50}
+                    value={formularioEditado}
+                    onChange={(e) =>
+                      setFormularioEditado(e.target.value)
+                    }
+                  />
+                  <button onClick={guardarEdicionFormulario}>
+                    Guardar edición / Agregar nueva evolución
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditarFormularioId(null);
+                      setFormularioEditado('');
+                    }}
+                    style={{ marginLeft: '0.5rem' }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {/*TAB CONTRASEÑA */}
+          {activeTab === 'password' && (
+            <>
+              <h3>Cambiar Contraseña</h3>
+              <input
+                type="password"
+                placeholder="Nueva contraseña"
+                value={nuevaContrasena}
+                onChange={(e) => setNuevaContrasena(e.target.value)}
+              />
+              <button onClick={cambiarContrasena}>
+                Actualizar contraseña
+              </button>
+
+              {mensajeContrasena && (
+                <p className="info-msg">{mensajeContrasena}</p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
+
+export default medicoDashboard;
