@@ -35,7 +35,7 @@ module.exports = (io) => {
 
     db.query(sqlBuscar, [paciente_id], (err, results) => {
       if (err) {
-        console.error("❌ Error al buscar conversación:", err);
+        console.error("Error al buscar conversación:", err);
         return res.status(500).json({ mensaje: "Error interno del servidor." });
       }
 
@@ -49,7 +49,7 @@ module.exports = (io) => {
         `;
         db.query(sqlCrear, [paciente_id], (err2, result) => {
           if (err2) {
-            console.error("❌ Error al crear conversación:", err2);
+            console.error("Error al crear conversación:", err2);
             return res.status(500).json({ mensaje: "Error al iniciar conversación." });
           }
 
@@ -71,7 +71,7 @@ module.exports = (io) => {
 
     db.query(sqlBuscar, [paciente_id], (err, results) => {
       if (err) {
-        console.error("❌ Error al buscar conversación:", err);
+        console.error("Error al buscar conversación:", err);
         return res.status(500).json({ mensaje: "Error interno." });
       }
 
@@ -86,7 +86,7 @@ module.exports = (io) => {
       if (!existenteAdmin) {
         const sqlAsignar = `UPDATE conversaciones SET admin_id = ? WHERE id = ?`;
         db.query(sqlAsignar, [adminAsignado, conversacion_id], (err2) => {
-          if (err2) console.error("⚠️ Error al asignar admin:", err2);
+          if (err2) console.error("Error al asignar admin:", err2);
         });
       }
 
@@ -103,7 +103,7 @@ module.exports = (io) => {
 
     db.query(sqlInsert, [conversacion_id, emisor_id, receptor_id, emisor_tipo, receptor_tipo, mensaje], (err, result) => {
       if (err) {
-        console.error("❌ Error al guardar mensaje:", err);
+        console.error("Error al guardar mensaje:", err);
         return res.status(500).json({ mensaje: "Error al guardar mensaje." });
       }
 
@@ -118,13 +118,13 @@ module.exports = (io) => {
         fecha_envio: new Date().toISOString(),
       };
 
-      // 📡 Emisiones socket.io
+      // Emisiones socket.io
       if (emisor_tipo === "paciente" && !receptor_id) {
         io.to("admins").emit("nuevoMensajePendiente", nuevoMensaje);
-        console.log(`📢 Mensaje de paciente ${emisor_id} emitido a todos los admins.`);
+        console.log(`Mensaje de paciente usuario_${emisor_id} emitido a todos los admins.`);
       } else if (receptor_id) {
         io.to(`user_${receptor_id}`).emit("nuevoMensaje", nuevoMensaje);
-        console.log(`💬 Mensaje directo a user_${receptor_id}`);
+        console.log(`Mensaje directo a usuario_${receptor_id}`);
       }
 
       io.to(`user_${emisor_id}`).emit("nuevoMensaje", nuevoMensaje);
@@ -148,7 +148,7 @@ module.exports = (io) => {
 
     db.query(sql, [conversacion_id], (err, results) => {
       if (err) {
-        console.error("❌ Error al obtener conversación:", err);
+        console.error("Error al obtener conversación:", err);
         return res.status(500).json({ mensaje: "Error al obtener conversación." });
       }
       res.json(results);
@@ -178,7 +178,7 @@ module.exports = (io) => {
 
     db.query(sql, [usuario_id, usuario_id], (err, results) => {
       if (err) {
-        console.error("❌ Error al obtener chats:", err);
+        console.error("Error al obtener chats:", err);
         return res.status(500).json({ mensaje: "Error al listar chats." });
       }
       res.json(results);
@@ -194,10 +194,10 @@ module.exports = (io) => {
     const sql = `UPDATE conversaciones SET admin_id = ? WHERE id = ?`;
     db.query(sql, [admin_id, conversacion_id], (err) => {
       if (err) {
-        console.error("❌ Error al asignar admin:", err);
+        console.error("Error al asignar admin:", err);
         return res.status(500).json({ mensaje: "Error al asignar admin." });
       }
-      res.json({ mensaje: "✅ Admin asignado correctamente." });
+      res.json({ mensaje: "Admin asignado correctamente." });
     });
   };
 
