@@ -1,57 +1,65 @@
-import { useState } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../components/axios";
+import { socket } from "../components/socket";
 const API_URL = import.meta.env.VITE_API_URL;
 
 function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [cargando, setCargando] = useState(false);
   const navigate = useNavigate();
 
+  //Iniciar sesión
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
+    setCargando(true);
 
     try {
-      const res = await axios.post(`${API_URL}/api/auth/login`, {
+      const res = await api.post(`${API_URL}/api/auth/login`, {
         email,
-        contrasena: password
+        contrasena: password,
       });
 
-      const usuario = res.data.usuario;
+      const { token, usuario } = res.data;
 
       if (!usuario || !usuario.tipo) {
-        setError('Usuario no válido o sin tipo asignado');
+        setError("Usuario no válido o sin tipo asignado");
+        setCargando(false);
         return;
       }
 
-      // Redirección según tipo de usuario
-      switch (usuario.tipo) {
-        case 'paciente':
-          navigate('/paciente-dashboard', { state: { usuario } });
-          break;
-        case 'medico':
-          navigate('/medico-dashboard', { state: { usuario } });
-          break;
-        case 'admin':
-          navigate('/admin-dashboard', { state: { usuario } });
-          break;
-        case 'superadmin':
-          navigate('/superadmin-dashboard', { state: { usuario } });
-          break;
-        default:
-          setError('Tipo de usuario desconocido');
-          break;
-      }
+      // Guardar token y datos del usuario
+      localStorage.setItem("token", token);
+      localStorage.setItem("usuario", JSON.stringify(usuario));
 
+      // Reconectar socket con token actualizado
+      socket.auth = { token };
+      socket.connect();
+
+      console.log(`Usuario autenticado: ${usuario.email}`);
+      console.log(`Tipo de usuario: ${usuario.tipo}`);
+
+      //Redirigir según tipo de usuario
+      const rutas = {
+        paciente: "/paciente-dashboard",
+        medico: "/medico-dashboard",
+        admin: "/admin-dashboard",
+        superadmin: "/superadmin-dashboard",
+      };
+
+      navigate(rutas[usuario.tipo] || "/");
     } catch (err) {
-      console.error('Error en login:', err);
-      setError(err.response?.data?.mensaje || 'Correo o contraseña incorrectos');
+      console.error("Error en login:", err);
+      setError(err.response?.data?.mensaje || "Correo o contraseña incorrectos");
+    } finally {
+      setCargando(false);
     }
   };
 
+  //Renderizado del formulario de login
   return (
     <div className="container">
       <h2>Iniciar sesión</h2>
@@ -72,11 +80,26 @@ function Login() {
           required
         />
 
-        <button type="submit">Ingresar</button>
+        <button type="submit" disabled={cargando}>
+          {cargando ? "Verificando..." : "Ingresar"}
+        </button>
       </form>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <p>¿No tenés cuenta? <a href="/registro">Registrate aquí</a></p>
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      <p>
+        ¿No tenés cuenta?{" "}
+        <span
+          onClick={() => navigate("/registro")}
+          style={{
+            color: "blue",
+            cursor: "pointer",
+            textDecoration: "underline",
+          }}
+        >
+          Registrate aquí
+        </span>
+      </p>
     </div>
   );
 }
