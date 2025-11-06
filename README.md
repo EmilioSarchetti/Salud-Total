@@ -7,6 +7,8 @@ Pasos para tener tu sistema propio :D
 
 2) Tener mysql con la DB en un comando de prompt unico que esta ubicado en el front "db.text"
 
+   Al mismo tiempo con el comando se crea un usuario de correo "superadmin@saludtotal.com" y contraseña 123 hasheada
+
 3) crear un archivo ".env" en la carpeta de backend
 
   -controllers
