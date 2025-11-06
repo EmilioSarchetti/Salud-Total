@@ -1,22 +1,21 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import axios from "axios";
 import Chat from "../components/chat.jsx";
-import { socket } from "../socket.js";
+import { socket } from "../components/socket.js";
 import "../styles.css";
-
-const API_URL = import.meta.env.VITE_API_URL;
+import LogoutButton from "../components/LogoutButton";
+import api from "../components/axios"; // cliente axios con token
 
 function AdminDashboard() {
   const { state } = useLocation();
-  const admin = state?.usuario;
- 
-  // estados generales
+  const admin = state?.usuario || JSON.parse(localStorage.getItem("usuario") || "null");
+
+  //estados generales
   const [activeTab, setActiveTab] = useState("turnos");
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
 
-  // turnos
+  //turnos
   const [especialidades, setEspecialidades] = useState([]);
   const [medicos, setMedicos] = useState([]);
   const [seleccionada, setSeleccionada] = useState("");
@@ -28,22 +27,17 @@ function AdminDashboard() {
 
   const [horariosMedico, setHorariosMedico] = useState([]);
   const [horasOcupadas, setHorasOcupadas] = useState([]);
-  const [editarTurnoId, setEditarTurnoId] = useState(null);
-  const [nuevaFecha, setNuevaFecha] = useState("");
-  const [nuevaHora, setNuevaHora] = useState("");
-  const [horariosEdicion, setHorariosEdicion] = useState([]);
 
-  // formularios
+  //formularios
   const [formularios, setFormularios] = useState([]);
   const [filtroNombre, setFiltroNombre] = useState("");
   const [filtromedicoEmail, setFiltromedicoEmail] = useState("");
 
-  // chat
+  //chat
   const [pacientesChat, setPacientesChat] = useState([]);
   const [pacienteSeleccionado, setPacienteSeleccionado] = useState(null);
-  const [noLeidos, setNoLeidos] = useState({});
 
-  // inicialización
+  //inicialización
   useEffect(() => {
     setEspecialidades([
       { id: 1, nombre: "Clínica" },
@@ -52,24 +46,18 @@ function AdminDashboard() {
       { id: 4, nombre: "Ginecología" },
     ]);
   }, []);
-  
-  // logout
-  const handleLogout = () => {
-    window.location.href = "/";
-  };
 
-  // socket.IO
+  //socket.IO
   useEffect(() => {
     if (!admin?.id) return;
     socket.emit("registrarUsuario", admin.id, "admin");
-    console.log(`Admin ${admin.nombre} conectado.`);
+    console.log(`🧩 Admin ${admin.nombre} conectado.`);
   }, [admin]);
 
-  
-  // turnos – funciones
+  //turnos – funciones
   const cargarTurnos = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/pacientes/turnos/${admin.id}`);
+      const res = await api.get(`/pacientes/turnos/${admin.id}`);
       setTurnos(res.data);
     } catch (err) {
       console.error("Error al cargar turnos:", err);
@@ -89,8 +77,9 @@ function AdminDashboard() {
     setHora("");
     setHorariosMedico([]);
     setHorasOcupadas([]);
+
     try {
-      const res = await axios.get(`${API_URL}/api/admin/medicos-por-especialidad/${id}`);
+      const res = await api.get(`/admin/medicos-por-especialidad/${id}`);
       setMedicos(res.data);
     } catch (err) {
       console.error("Error al cargar médicos:", err);
@@ -103,8 +92,9 @@ function AdminDashboard() {
     setFecha("");
     setHora("");
     setHorasOcupadas([]);
+
     try {
-      const res = await axios.get(`${API_URL}/api/medicoes/horarios/${id}`);
+      const res = await api.get(`/medicoes/horarios/${id}`);
       setHorariosMedico(res.data);
     } catch (err) {
       console.error("Error al cargar horarios:", err);
@@ -113,15 +103,15 @@ function AdminDashboard() {
 
   useEffect(() => {
     if (fecha && medico) {
-      axios
-        .get(`${API_URL}/api/medicoes/ocupados/${medico}/${fecha}`)
+      api
+        .get(`/medicoes/ocupados/${medico}/${fecha}`)
         .then((res) => {
           const horas = Array.isArray(res.data) ? res.data : [];
           setHorasOcupadas(horas);
         })
         .catch((err) => console.error("Error al obtener horas ocupadas:", err));
     }
-  }, [fecha, medico, API_URL]);
+  }, [fecha, medico]);
 
   const obtenerDiaSemana = (fechaStr) => {
     if (!fechaStr) return null;
@@ -165,7 +155,7 @@ function AdminDashboard() {
     setError("");
     if (!hora) return setError("Seleccioná una hora disponible.");
     try {
-      await axios.post(`${API_URL}/api/pacientes/solicitar-turno`, {
+      await api.post(`/pacientes/solicitar-turno`, {
         paciente_id: admin.id,
         medico_id: medico,
         especialidad_id: seleccionada,
@@ -190,7 +180,7 @@ function AdminDashboard() {
     try {
       const seguro = window.confirm("¿Seguro que querés cancelar este turno?");
       if (!seguro) return;
-      await axios.patch(`${API_URL}/api/pacientes/turno/cancelar/${id}`);
+      await api.patch(`/pacientes/turno/cancelar/${id}`);
       await cargarTurnos();
       setMensaje("Turno cancelado correctamente.");
       setTimeout(() => setMensaje(""), 3000);
@@ -200,10 +190,10 @@ function AdminDashboard() {
     }
   };
 
-  // formularios
+  //formularios
   const buscarFormularios = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/admin/formularios`, {
+      const res = await api.get(`/admin/formularios`, {
         params: { nombre_completo: filtroNombre, medico_email: filtromedicoEmail },
       });
       setFormularios(res.data);
@@ -212,11 +202,11 @@ function AdminDashboard() {
     }
   };
 
-  // chat
+  //chat
   const cargarConversaciones = async () => {
     if (!admin?.id) return;
     try {
-      const res = await axios.get(`${API_URL}/api/chat/usuario/${admin.id}`);
+      const res = await api.get(`/chat/usuario/${admin.id}`);
       setPacientesChat(res.data);
     } catch (err) {
       console.error("Error al cargar conversaciones:", err);
@@ -227,35 +217,20 @@ function AdminDashboard() {
     if (activeTab === "chat") cargarConversaciones();
   }, [activeTab]);
 
-  // render
+  //RENDER
   return (
     <div className="container">
-      <div style={{ textAlign: "right", marginBottom: "1rem" }}>
-        <button onClick={handleLogout}>Cerrar sesión</button>
+      <div>
+        <LogoutButton />
       </div>
 
       <h2>Panel de Administración</h2>
       <h4>Bienvenido/a, {admin?.nombre}</h4>
 
       <div className="tab-nav">
-        <button
-          onClick={() => setActiveTab("turnos")}
-          className={activeTab === "turnos" ? "active" : ""}
-        >
-          Turnos
-        </button>
-        <button
-          onClick={() => setActiveTab("formularios")}
-          className={activeTab === "formularios" ? "active" : ""}
-        >
-          Formularios
-        </button>
-        <button
-          onClick={() => setActiveTab("chat")}
-          className={activeTab === "chat" ? "active" : ""}
-        >
-          Chat
-        </button>
+        <button onClick={() => setActiveTab("turnos")} className={activeTab === "turnos" ? "active" : ""}>Turnos</button>
+        <button onClick={() => setActiveTab("formularios")} className={activeTab === "formularios" ? "active" : ""}>Formularios</button>
+        <button onClick={() => setActiveTab("chat")} className={activeTab === "chat" ? "active" : ""}>Chat</button>
       </div>
 
       {/* TURNOS */}
@@ -266,9 +241,7 @@ function AdminDashboard() {
           <select value={seleccionada} onChange={handleEspecialidad}>
             <option value="">Seleccionar</option>
             {especialidades.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.nombre}
-              </option>
+              <option key={e.id} value={e.id}>{e.nombre}</option>
             ))}
           </select>
 
@@ -289,18 +262,12 @@ function AdminDashboard() {
           <select value={hora} onChange={(e) => setHora(e.target.value)}>
             <option value="">Seleccionar</option>
             {bloquesDisponibles().map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
+              <option key={b} value={b}>{b}</option>
             ))}
           </select>
 
           <label>Detalles (nombre del paciente, motivo, etc):</label>
-          <textarea
-            rows="3"
-            value={detalles}
-            onChange={(e) => setDetalles(e.target.value)}
-          />
+          <textarea rows="3" value={detalles} onChange={(e) => setDetalles(e.target.value)} />
 
           <button onClick={solicitarTurno}>Solicitar Turno</button>
 
@@ -323,9 +290,7 @@ function AdminDashboard() {
                   <td>{t.fecha}</td>
                   <td>{t.hora}</td>
                   <td>{t.estado}</td>
-                  <td>
-                    {t.nombre_medico} {t.apellido_medico}
-                  </td>
+                  <td>{t.nombre_medico} {t.apellido_medico}</td>
                   <td>{t.especialidad}</td>
                   <td>
                     {["en espera", "confirmado"].includes(t.estado) && (
@@ -343,18 +308,8 @@ function AdminDashboard() {
       {activeTab === "formularios" && (
         <div>
           <h3>Buscar Formularios</h3>
-          <input
-            type="text"
-            placeholder="Nombre del paciente"
-            value={filtroNombre}
-            onChange={(e) => setFiltroNombre(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Correo del médico (opcional)"
-            value={filtromedicoEmail}
-            onChange={(e) => setFiltromedicoEmail(e.target.value)}
-          />
+          <input type="text" placeholder="Nombre del paciente" value={filtroNombre} onChange={(e) => setFiltroNombre(e.target.value)} />
+          <input type="text" placeholder="Correo del médico (opcional)" value={filtromedicoEmail} onChange={(e) => setFiltromedicoEmail(e.target.value)} />
           <button onClick={buscarFormularios}>Buscar Formularios</button>
 
           {formularios.length > 0 && (
@@ -393,9 +348,7 @@ function AdminDashboard() {
                           conversacion_id: chat.conversacion_id,
                         })
                       }
-                      className={`chat-item ${
-                        pacienteSeleccionado?.id === chat.paciente_id ? "active" : ""
-                      }`}
+                      className={`chat-item ${pacienteSeleccionado?.id === chat.paciente_id ? "active" : ""}`}
                     >
                       <strong>{chat.paciente_nombre || "Paciente"}</strong>
                       <p className="chat-preview">{chat.ultimo_mensaje || "Sin mensajes"}</p>
