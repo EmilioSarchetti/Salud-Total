@@ -1,8 +1,9 @@
 const db = require("../models/db");
+const { rtdb } = require("../middleware/firebase");
 
 module.exports = (io) => {
 
-//mensaje entre admin y paciente
+  //Metodo para enviar mensaje
   const enviarMensaje = (req, res) => {
     const { emisor_id, receptor_id, mensaje, emisor_tipo, receptor_tipo } = req.body;
 
@@ -10,6 +11,7 @@ module.exports = (io) => {
       return res.status(400).json({ mensaje: "Faltan datos obligatorios." });
     }
 
+    // Solo permitimos el chat entre admin y paciente
     if (!["paciente", "admin"].includes(emisor_tipo) || 
         (receptor_tipo && !["paciente", "admin"].includes(receptor_tipo))) {
       return res.status(403).json({ mensaje: "Comunicación no permitida." });
@@ -24,7 +26,7 @@ module.exports = (io) => {
     }
   };
 
-//usa una conversacion existente o crea una nueva a traves del paciente
+  //Crear o usar conversación existente (PACIENTE)
   function crearOUsarConversacion(paciente_id, mensaje, res, io) {
     const sqlBuscar = `
       SELECT id, admin_id 
@@ -60,7 +62,7 @@ module.exports = (io) => {
     });
   }
 
-  //respuesta del admin al paciente
+  //Responder mensaje (ADMIN) al usuario
   function responderAdmin(admin_id, paciente_id, mensaje, res, io) {
     const sqlBuscar = `
       SELECT id, admin_id 
@@ -82,7 +84,7 @@ module.exports = (io) => {
       const { id: conversacion_id, admin_id: existenteAdmin } = results[0];
       const adminAsignado = existenteAdmin || admin_id;
 
-      // Si aún no tiene admin, se asigna al que toque ma charla
+      //El null del mensaje es porque el paciente_id ya se tiene
       if (!existenteAdmin) {
         const sqlAsignar = `UPDATE conversaciones SET admin_id = ? WHERE id = ?`;
         db.query(sqlAsignar, [adminAsignado, conversacion_id], (err2) => {
@@ -94,8 +96,8 @@ module.exports = (io) => {
     });
   }
 
-//guarda el mensaje en la base de datos y emite via socket.io
-  function guardarMensaje(conversacion_id, emisor_id, receptor_id, emisor_tipo, receptor_tipo, mensaje, io, res) {
+  //Notificacion y guardado del mensaje
+function guardarMensaje(conversacion_id, emisor_id, receptor_id, emisor_tipo, receptor_tipo, mensaje, io, res) {
     const sqlInsert = `
       INSERT INTO mensajes_chat (conversacion_id, emisor_id, receptor_id, emisor_tipo, receptor_tipo, mensaje)
       VALUES (?, ?, ?, ?, ?, ?);
@@ -118,21 +120,48 @@ module.exports = (io) => {
         fecha_envio: new Date().toISOString(),
       };
 
-      // Emisiones socket.io
+      //Socket.io
       if (emisor_tipo === "paciente" && !receptor_id) {
         io.to("admins").emit("nuevoMensajePendiente", nuevoMensaje);
-        console.log(`Mensaje de paciente usuario_${emisor_id} emitido a todos los admins.`);
+        console.log(`Mensaje de paciente ${emisor_id} emitido a todos los admins.`);
       } else if (receptor_id) {
         io.to(`user_${receptor_id}`).emit("nuevoMensaje", nuevoMensaje);
-        console.log(`Mensaje directo a usuario_${receptor_id}`);
+        console.log(`Mensaje directo a user_${receptor_id}`);
       }
 
       io.to(`user_${emisor_id}`).emit("nuevoMensaje", nuevoMensaje);
+
+      //Espejo en Firebase RTDB
+      if (rtdb) {
+        const convPath = `chats/${conversacion_id}`;
+        const mensajeRef = rtdb.ref(`${convPath}/mensajes`).push();
+        const payload = {
+          id_mysql: nuevoMensaje.id,
+          ...nuevoMensaje,
+          timestamp: Date.now(),
+        };
+
+        mensajeRef
+          .set(payload)
+          .then(() => console.log(`RTDB: Mensaje ${nuevoMensaje.id} registrado en ${convPath}`))
+          .catch((errFB) => console.warn("RTDB error:", errFB.message));
+
+        rtdb
+          .ref(`${convPath}/meta`)
+          .update({
+            ultima: mensaje,
+            ts: payload.timestamp,
+            ultimo_emisor_id: emisor_id,
+            ultimo_tipo: emisor_tipo,
+          })
+          .catch(() => {});
+      }
+
       res.json(nuevoMensaje);
     });
   }
 
-  //recarga los mensajes anteriores
+  //Obtener conversación completa
   const obtenerConversacion = (req, res) => {
     const { conversacion_id } = req.params;
 
@@ -155,7 +184,7 @@ module.exports = (io) => {
     });
   };
 
-//lista las conversaciones de un usuario
+  //Registro o historial de chats de un usuario
   const obtenerChatsUsuario = (req, res) => {
     const { usuario_id } = req.params;
 
@@ -185,7 +214,7 @@ module.exports = (io) => {
     });
   };
 
-//asigana un admin a una conversacion
+//Asigna un admin a una conversación de usuario
   const asignarAdmin = (req, res) => {
     const { conversacion_id, admin_id } = req.body;
     if (!conversacion_id || !admin_id)

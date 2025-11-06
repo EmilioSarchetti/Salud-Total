@@ -1,6 +1,8 @@
 const db = require('../models/db');
+const { rtdb } = require("../middleware/firebase");
 
-//Ver turnos asignados al medico
+
+//  1. Ver turnos asignados al medico
 exports.verTurnos = (req, res) => {
   const medicoId = req.params.medicoId;
 
@@ -23,7 +25,8 @@ exports.verTurnos = (req, res) => {
   });
 };
 
-//2. Actualizar estado de un turno
+
+// 2. Actualizar estado de un turno
 exports.actualizarEstadoTurno = (req, res) => {
   const turnoId = req.params.turnoId;
   const { estado } = req.body;
@@ -43,13 +46,14 @@ exports.actualizarEstadoTurno = (req, res) => {
   });
 };
 
-// 3. Obtener horarios del medico
+
+//  3. Obtener horarios del medico
 exports.obtenerHorariosmedico = (req, res) => {
   const medicoId = req.params.medicoId;
 
   const sql = `
     SELECT dia_semana, hora_inicio, hora_fin
-    FROM horarios_medicoes
+    FROM horarios_medicos
     WHERE medico_id = ?
   `;
 
@@ -62,12 +66,13 @@ exports.obtenerHorariosmedico = (req, res) => {
   });
 };
 
-// 4. Actualizar horarios del medico
+
+//  4. Actualizar horarios del medico
 exports.actualizarHorariosmedico = (req, res) => {
   const medicoId = req.params.medicoId;
   const nuevosHorarios = req.body.horarios;
 
-  const eliminarSQL = `DELETE FROM horarios_medicoes WHERE medico_id = ?`;
+  const eliminarSQL = `DELETE FROM horarios_medicos WHERE medico_id = ?`;
 
   db.query(eliminarSQL, [medicoId], (err) => {
     if (err) {
@@ -80,7 +85,7 @@ exports.actualizarHorariosmedico = (req, res) => {
     }
 
     const insertarSQL = `
-      INSERT INTO horarios_medicoes (medico_id, dia_semana, hora_inicio, hora_fin)
+      INSERT INTO horarios_medicos (medico_id, dia_semana, hora_inicio, hora_fin)
       VALUES ?
     `;
     const valores = nuevosHorarios.map(h => [medicoId, h.dia_semana, h.hora_inicio, h.hora_fin]);
@@ -90,10 +95,11 @@ exports.actualizarHorariosmedico = (req, res) => {
         console.error(' Error al insertar horarios:', err2);
         return res.status(500).json({ mensaje: 'Error al insertar los horarios.' });
       }
-      res.status(200).json({ mensaje: ' Horarios actualizados correctamente.' });
+      res.status(200).json({ mensaje: 'Horarios actualizados correctamente.' });
     });
   });
 };
+
 
 // 5. Ver horas ocupadas de un día
 exports.horasOcupadas = (req, res) => {
@@ -107,7 +113,7 @@ exports.horasOcupadas = (req, res) => {
 
   db.query(sql, [medicoId, fecha], (err, resultados) => {
     if (err) {
-      console.error('Error al obtener horas ocupadas:', err);
+      console.error(' Error al obtener horas ocupadas:', err);
       return res.status(500).json({ mensaje: 'Error al obtener turnos ocupados' });
     }
 
@@ -116,7 +122,8 @@ exports.horasOcupadas = (req, res) => {
   });
 };
 
-//6. Cambiar contraseña
+
+// 6. Cambiar contraseña
 exports.cambiarPassword = (req, res) => {
   const medicoId = req.params.medicoId;
   const { nueva_contrasena } = req.body;
@@ -129,14 +136,15 @@ exports.cambiarPassword = (req, res) => {
 
   db.query(sql, [nueva_contrasena, medicoId], (err) => {
     if (err) {
-      console.error(' Error al cambiar contraseña:', err);
+      console.error('Error al cambiar contraseña:', err);
       return res.status(500).json({ mensaje: 'Error al cambiar la contraseña.' });
     }
     res.status(200).json({ mensaje: ' Contraseña actualizada correctamente.' });
   });
 };
 
-// 7. Buscar paciente por nombre completo
+
+//  7. Buscar paciente por nombre completo
 exports.buscarPacientePorNombreCompleto = (req, res) => {
   const { nombre, apellido } = req.query;
 
@@ -152,7 +160,7 @@ exports.buscarPacientePorNombreCompleto = (req, res) => {
 
   db.query(sql, [nombre, apellido], (err, resultados) => {
     if (err) {
-      console.error('Error al buscar paciente:', err);
+      console.error(' Error al buscar paciente:', err);
       return res.status(500).json({ mensaje: 'Error al buscar paciente.' });
     }
 
@@ -164,8 +172,9 @@ exports.buscarPacientePorNombreCompleto = (req, res) => {
   });
 };
 
-// 8. Crear formulario médico
-exports.crearFormularioMedico = (req, res) => {
+
+//  8. Crear formulario médico + espejo Firebase
+exports.crearFormularioMedico = async (req, res) => {
   const { medico_id, nombre_completo, contenido } = req.body;
 
   if (!medico_id || !nombre_completo || !contenido) {
@@ -177,19 +186,42 @@ exports.crearFormularioMedico = (req, res) => {
     VALUES (?, ?, ?)
   `;
 
-  db.query(insertarSQL, [medico_id, nombre_completo.trim(), contenido], (err) => {
+  db.query(insertarSQL, [medico_id, nombre_completo.trim(), contenido], async (err, resultado) => {
     if (err) {
       console.error(' Error al guardar formulario médico:', err);
       return res.status(500).json({ mensaje: 'Error al guardar el formulario.' });
     }
-    res.status(201).json({ mensaje: '✅ Formulario guardado exitosamente.' });
+
+    const formularioId = resultado.insertId;
+    const fecha = new Date().toISOString();
+
+try {
+  const rutaPaciente = `historiales/${nombre_completo.replace(/\s+/g, '_')}`;
+  const refHistorial = rtdb.ref(rutaPaciente); 
+  const nuevoRegistro = refHistorial.push();   
+
+  await nuevoRegistro.set({
+    formulario_id: formularioId,
+    medico_id,
+    nombre_completo,
+    contenido,
+    fecha,
+  });
+
+  console.log(` Historial médico guardado en Firebase para ${nombre_completo}`);
+} catch (firebaseError) {
+  console.error(" Error al guardar historial en Firebase:", firebaseError);
+}
+
+    res.status(201).json({ mensaje: '✅ Formulario guardado exitosamente (MySQL + Firebase).' });
   });
 };
 
-// 9. Editar formulario médico
+
+//  9. Editar formulario médico + actualizar Firebase
 exports.editarFormularioMedico = (req, res) => {
   const formularioId = req.params.id;
-  const { contenido } = req.body;
+  const { contenido, nombre_completo } = req.body;
 
   if (!contenido) {
     return res.status(400).json({ mensaje: 'El contenido no puede estar vacío.' });
@@ -197,9 +229,9 @@ exports.editarFormularioMedico = (req, res) => {
 
   const sql = `UPDATE formularios_medicos SET contenido = ? WHERE id = ?`;
 
-  db.query(sql, [contenido, formularioId], (err, resultado) => {
+  db.query(sql, [contenido, formularioId], async (err, resultado) => {
     if (err) {
-      console.error(' Error al editar formulario:', err);
+      console.error('Error al editar formulario:', err);
       return res.status(500).json({ mensaje: 'Error al actualizar el formulario.' });
     }
 
@@ -207,11 +239,25 @@ exports.editarFormularioMedico = (req, res) => {
       return res.status(404).json({ mensaje: 'Formulario no encontrado.' });
     }
 
-    res.status(200).json({ mensaje: ' Formulario actualizado correctamente.' });
+    try {
+      const refHistorial = ref(rtdb, `historiales/${nombre_completo.replace(/\s+/g, '_')}`);
+      await update(refHistorial, {
+        ultima_actualizacion: new Date().toISOString(),
+        ultimo_formulario_editado: formularioId,
+        contenido_actualizado: contenido,
+      });
+
+      console.log(` Firebase actualizado para ${nombre_completo}`);
+    } catch (firebaseError) {
+      console.error("⚠️ Error al actualizar Firebase:", firebaseError);
+    }
+
+    res.status(200).json({ mensaje: ' Formulario actualizado correctamente (MySQL + Firebase).' });
   });
 };
 
-//10. Listar formularios creados por el medico
+
+//  10. Listar formularios creados por el medico
 exports.listarFormulariosDelmedico = (req, res) => {
   const medicoId = req.params.id;
 
@@ -230,7 +276,8 @@ exports.listarFormulariosDelmedico = (req, res) => {
   });
 };
 
-// 11. Buscar formularios por nombre del paciente
+
+//  11. Buscar formularios por nombre del paciente
 exports.buscarFormularioPorNombre = (req, res) => {
   const { nombre } = req.params;
 
@@ -242,7 +289,7 @@ exports.buscarFormularioPorNombre = (req, res) => {
 
   db.query(sql, [`%${nombre}%`], (err, results) => {
     if (err) {
-      console.error("Error al buscar formularios por nombre:", err);
+      console.error(" Error al buscar formularios por nombre:", err);
       return res.status(500).json({ mensaje: "Error al buscar formularios" });
     }
 
