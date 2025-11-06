@@ -2,22 +2,24 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 
-//listar médicos por especialidad 
+
+// listar médicos por especialidad
 router.get(
-    '/medicos-por-especialidad/:especialidadId',
-    adminController.listarMedicosPorEspecialidad
+  '/medicos-por-especialidad/:especialidadId',
+  adminController.listarMedicosPorEspecialidad
 );
 
-//contar pacientes atendidos (por médico)
+// contar pacientes atendidos (por médico)
 router.get(
-    '/pacientes-atendidos/:medicoId',
-    adminController.contarPacientesAtendidos
+  '/pacientes-atendidos/:medicoId',
+  adminController.contarPacientesAtendidos
 );
 
-//formularios médicos
+// formularios médicos
 router.get('/formularios', adminController.obtenerFormularios);
 
-//turnos (opcional para secretaria)
+// turnos (opcional para gestión secretaria)
+// estos endpoints son útiles si el admin/secretario gestiona turnos.
 router.get('/turnos', adminController.listarTurnos);
 router.put('/turnos/estado', adminController.actualizarEstadoTurno);
 
