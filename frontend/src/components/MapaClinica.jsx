@@ -9,6 +9,7 @@ const iconoClinica = L.icon({
   iconAnchor: [20, 40],
 });
 
+// Componente para el mapa de la clínica
 function MapaClinica() {
   const [direccion] = useState({
     nombre: "Clínica SaludTotal",
