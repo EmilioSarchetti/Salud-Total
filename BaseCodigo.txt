@@ -1,0 +1,129 @@
+CREATE DATABASE IF NOT EXISTS salud_total CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE salud_total;
+
+-- ==========================================
+-- 🧍 TABLA: usuarios
+-- ==========================================
+CREATE TABLE usuarios (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL,
+  apellido VARCHAR(100) NOT NULL,
+  email VARCHAR(150) NOT NULL UNIQUE,
+  contrasena VARCHAR(255) NOT NULL,
+  tipo ENUM('superadmin','admin','medico','paciente') NOT NULL DEFAULT 'paciente',
+  obra_social VARCHAR(100),
+  detalles_extras TEXT,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- 🏥 TABLA: especialidades
+-- ==========================================
+CREATE TABLE especialidades (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL
+);
+
+-- ==========================================
+-- 👨‍⚕️ TABLA: medico_especialidades
+-- ==========================================
+CREATE TABLE medico_especialidades (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  medico_id INT NOT NULL,
+  especialidad_id INT NOT NULL,
+  FOREIGN KEY (medico_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+  FOREIGN KEY (especialidad_id) REFERENCES especialidades(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- ⏰ TABLA: horarios_medicoes
+-- ==========================================
+CREATE TABLE horarios_medicos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  medico_id INT NOT NULL,
+  dia_semana VARCHAR(20) NOT NULL,
+  hora_inicio TIME NOT NULL,
+  hora_fin TIME NOT NULL,
+  FOREIGN KEY (medico_id) REFERENCES usuarios(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- 📅 TABLA: turnos
+-- ==========================================
+CREATE TABLE turnos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  paciente_id INT NOT NULL,
+  medico_id INT NOT NULL,
+  especialidad_id INT NOT NULL,
+  fecha DATE NOT NULL,
+  hora TIME NOT NULL,
+  detalles TEXT,
+  estado ENUM('en espera','confirmado','cancelado','atendido') DEFAULT 'en espera',
+  FOREIGN KEY (paciente_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+  FOREIGN KEY (medico_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+  FOREIGN KEY (especialidad_id) REFERENCES especialidades(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- 💬 TABLA: conversaciones
+-- ==========================================
+CREATE TABLE conversaciones (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  paciente_id INT,
+  admin_id INT,
+  estado ENUM('abierta','cerrada') DEFAULT 'abierta',
+  fecha_inicio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (paciente_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+  FOREIGN KEY (admin_id) REFERENCES usuarios(id) ON DELETE SET NULL
+);
+
+-- ==========================================
+-- 💭 TABLA: mensajes_chat
+-- ==========================================
+CREATE TABLE mensajes_chat (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  conversacion_id INT NOT NULL,
+  emisor_id INT NOT NULL,
+  emisor_tipo ENUM('paciente','admin','medico','superadmin') NOT NULL,
+  receptor_id INT NULL,
+  receptor_tipo ENUM('paciente','admin','medico','superadmin') NOT NULL,
+  mensaje TEXT NOT NULL,
+  fecha_envio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (conversacion_id) REFERENCES conversaciones(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- 📄 TABLA: formularios_medicos
+-- ==========================================
+CREATE TABLE formularios_medicos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  medico_id INT NOT NULL,
+  nombre_completo VARCHAR(255) NOT NULL,
+  contenido TEXT NOT NULL,
+  fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (medico_id) REFERENCES usuarios(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- 👑 USUARIO INICIAL (SUPERADMIN)
+-- ==========================================
+INSERT INTO usuarios (nombre, apellido, email, contrasena, tipo)
+VALUES ('Super', 'Admin', 'superadmin@correo.com', '$2b$12$DaSlIIPH01I70A5asTXlueShme6BS6PFiwmroKL/CpIXTDZNHOwfG', 'superadmin');
+
+
+-- ==========================================
+-- 🩺 ESPECIALIDADES PREDEFINIDAS
+-- ==========================================
+INSERT INTO especialidades (nombre) VALUES
+('Clínica'),
+('Pediatría'),
+('Cardiología'),
+('Ginecología');
+
+ALTER TABLE turnos
+ADD COLUMN recordatorio_enviado TINYINT(1) DEFAULT 0,
+ADD COLUMN fecha_recordatorio DATETIME NULL;
+ALTER TABLE turnos
+ADD COLUMN fecha_actualizacion_estado DATETIME NULL AFTER estado;
+
+

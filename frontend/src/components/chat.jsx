@@ -1,45 +1,43 @@
 import { useEffect, useState, useRef } from "react";
-import axios from "axios";
+import api from "./axios.js";
 import { socket } from "./socket.js";
-
-const API_URL = import.meta.env.VITE_API_URL;
 
 function Chat({ usuario, receptor, conversacionId: propConversacionId }) {
   const [mensajes, setMensajes] = useState([]);
   const [nuevoMensaje, setNuevoMensaje] = useState("");
   const [conversacionId, setConversacionId] = useState(propConversacionId || null);
   const chatEndRef = useRef(null);
-  const socketInicializado = useRef(false);
 
- useEffect(() => {
+  // Cargar conversación actual
+  useEffect(() => {
+    let cancelado = false;
+
     const cargarConversacion = async () => {
       if (!usuario?.id) return;
-
       try {
-        let convId = conversacionId;
+        let convId = propConversacionId || conversacionId;
 
+        // Si no hay ID, buscar conversaciones activas
         if (!convId) {
-          const res = await axios.get(`${API_URL}/api/chat/usuario/${usuario.id}`);
-
-          if (res.data.length > 0) {
+          const res = await api.get(`/chat/usuario/${usuario.id}`);
+          if (Array.isArray(res.data) && res.data.length > 0) {
             let conv = null;
-
             if (usuario.tipo === "admin" && receptor?.id) {
               conv = res.data.find((c) => c.paciente_id === receptor.id);
             } else if (usuario.tipo === "paciente") {
-              conv = res.data[0];
+              conv = res.data.find((c) => c.estado === "abierta") || res.data[0];
             }
-
             if (conv) {
               convId = conv.conversacion_id;
-              setConversacionId(convId);
+              if (!cancelado) setConversacionId(convId);
             }
           }
         }
 
-        if (convId) {
-          const mensajesRes = await axios.get(`${API_URL}/api/chat/mensajes/${convId}`);
-          setMensajes(mensajesRes.data);
+        // Cargar mensajes si tenemos conversación
+        if (convId && !cancelado) {
+          const mensajesRes = await api.get(`/chat/mensajes/${convId}`);
+          setMensajes(Array.isArray(mensajesRes.data) ? mensajesRes.data : []);
         }
       } catch (err) {
         console.error("Error al cargar conversación:", err);
@@ -47,72 +45,71 @@ function Chat({ usuario, receptor, conversacionId: propConversacionId }) {
     };
 
     cargarConversacion();
-  }, [usuario?.id, receptor?.id]);
+    return () => { cancelado = true; };
+  }, [usuario?.id, receptor?.id, propConversacionId]);
 
+  // Escuchar mensajes en tiempo real
   useEffect(() => {
-    if (!usuario || socketInicializado.current) return;
-    socketInicializado.current = true;
-    // Evita duplicación si el mensaje ya está
-    const handleNuevoMensaje = (msg) => {
-      setMensajes((prev) => {
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
-    };
-    const handlePendiente = (msg) => {
-      if (usuario.tipo === "admin") {
-        console.log(`Mensaje pendiente de paciente ${msg.emisor_id}`);
+    if (!usuario?.id) return;
+
+    const handleMensajeRecibido = (msg) => {
+      if (msg.conversacion_id === conversacionId) {
+        setMensajes((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
       }
     };
-    socket.on("nuevoMensaje", handleNuevoMensaje);
-    socket.on("nuevoMensajePendiente", handlePendiente);
 
-    return () => {
-      socket.off("nuevoMensaje", handleNuevoMensaje);
-      socket.off("nuevoMensajePendiente", handlePendiente);
-      socketInicializado.current = false;
-    };
-    }, [usuario]);
+    socket.on("mensaje_recibido", handleMensajeRecibido);
+    return () => socket.off("mensaje_recibido", handleMensajeRecibido);
+  }, [usuario?.id, conversacionId]);
 
-    //envia mensajes
-    const enviarMensaje = async (e) => {
-        e.preventDefault();
-        if (!nuevoMensaje.trim()) return;
+  // ✉️ Enviar mensaje
+  const enviarMensaje = async (e) => {
+    e.preventDefault();
+    if (!nuevoMensaje.trim()) return;
 
-        try {
-            const body = {
-                emisor_id: usuario.id,
-                emisor_tipo: usuario.tipo,
-                mensaje: nuevoMensaje.trim(),
-                receptor_id: receptor?.id || null,
-                receptor_tipo: receptor?.tipo || "admin",
-            };
+    try {
+      // Si no hay receptor asignado lo mandamos a “Administración general” lo que seria cualquier ADMIN que tome el chat
+      const receptor_id_seguro = receptor?.id || null;
+      const receptor_tipo_seguro = receptor?.tipo || "admin";
 
-        const res = await axios.post(`${API_URL}/api/chat/enviar`, body);
-        const mensajeNuevo = res.data;
+      const body = {
+        emisor_id: usuario.id,
+        emisor_tipo: usuario.tipo,
+        mensaje: nuevoMensaje.trim(),
+        receptor_id: receptor_id_seguro,
+        receptor_tipo: receptor_tipo_seguro,
+        conversacion_id: conversacionId || null, //aseguramos ID coherente para que el admin lo asigne al tomar el NULL
+      };
 
-              if (!conversacionId && mensajeNuevo.conversacion_id) {
+      const res = await api.post(`/chat/enviar`, body);
+      const mensajeNuevo = res.data;
+
+      // Si la conversación es nueva, guardamos su ID
+      if (!conversacionId && mensajeNuevo.conversacion_id) {
         setConversacionId(mensajeNuevo.conversacion_id);
-            }
+      }
 
-        setMensajes((prev) => {
-            if (prev.some((m) => m.id === mensajeNuevo.id)) return prev;
-            return [...prev, mensajeNuevo];
-        });
+      setMensajes((prev) => {
+        if (prev.some((m) => m.id === mensajeNuevo.id)) return prev;
+        return [...prev, mensajeNuevo];
+      });
 
-        setNuevoMensaje("");
-            } catch (err) {
-            console.error("Error al enviar mensaje:", err);
-            }
-        };
+      setNuevoMensaje("");
+    } catch (err) {
+      console.error("Error al enviar mensaje:", err);
+    }
+  };
 
-    //mantener el chat al final
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [mensajes.length]);    
+  // Mantener scroll abajo
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [mensajes.length]);
 
-    //interfaz del chat
-    return (
+  // Interfaz del chat
+  return (
     <div className="chat-container">
       <div className="chat-header">
         <h3>{receptor?.nombre || "Administración"}</h3>
@@ -149,7 +146,7 @@ function Chat({ usuario, receptor, conversacionId: propConversacionId }) {
         <div ref={chatEndRef} />
       </div>
 
-      {usuario.tipo !== "medico" && usuario.tipo !== "superadmin" && (
+      {["admin", "paciente"].includes(usuario.tipo) && (
         <form onSubmit={enviarMensaje} className="chat-input">
           <input
             type="text"
@@ -163,4 +160,5 @@ function Chat({ usuario, receptor, conversacionId: propConversacionId }) {
     </div>
   );
 }
+
 export default Chat;

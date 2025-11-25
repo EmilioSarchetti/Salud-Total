@@ -1,4 +1,3 @@
-//Dependencias principales
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -7,15 +6,10 @@ const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 const { verifyJWT } = require("./middleware/jwtMiddleware");
 const { admin, rtdb } = require("./middleware/firebase");
-const path = require("path");
-
-
-//Inicialización del servidor Express + HTTP
 const app = express();
 const server = http.createServer(app);
 
-
-// Configuración de CORS
+//cors
 app.use(
   cors({
     origin: "*",
@@ -25,30 +19,38 @@ app.use(
 );
 app.use(express.json());
 
-
-//Configurar Socket.IO
+// Configurar Socket.IO
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST", "PUT", "DELETE"] },
 });
 
 const JWT_SECRET = process.env.JWT_SECRET || "mi_clave_secreta";
 
-
-// Autenticación de Sockets con JWT
+//Autenticación de Sockets con JWT
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
+
   if (!token) {
-    console.warn("Conexión rechazada: sin token");
+    console.warn("Conexión rechazada: sin token recibido en handshake.");
     return next(new Error("Token requerido"));
   }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+
+    //Verificamos que el tipo de usuario sea permitido
+    if (!["paciente", "admin", "superadmin", "medico"].includes(decoded.tipo)) {
+      console.warn(`Tipo de usuario no autorizado: ${decoded.tipo}`);
+      return next(new Error("Token no autorizado"));
+    }
+
     socket.user = decoded;
 
-    console.log(`Socket autenticado: ${decoded.email} (${decoded.tipo})`);
+    // Log de diagnóstico
+    console.log(" DEBUG TOKEN DECODIFICADO:", decoded);
+    console.log(` Socket autenticado: ${decoded.email} (${decoded.tipo})`);
 
-    // Registrar conexión en Firebase
+    // Registrar conexión en Firebase RTDB
     if (rtdb) {
       const ref = rtdb.ref(`usuarios/${decoded.id}`);
       ref
@@ -75,23 +77,51 @@ io.use((socket, next) => {
   }
 });
 
-//Manejo de conexiones Socket.IO con el error de autenticación
+//Manejo de conexiones Socket.IO
 io.on("connection", (socket) => {
   const { user } = socket;
+  if (!user) {
+    console.warn("Usuario no autenticado al conectar socket.");
+    return;
+  }
+
   console.log(`Usuario conectado: ${user.email} (${user.tipo})`);
 
-  //Unir a salas según tipo
+  // Unir a su sala personal
   socket.join(`user_${user.id}`);
   console.log(`${user.tipo} ${user.id} unido a sala user_${user.id}`);
 
+  // Unir a sala global de administradores
   if (user.tipo === "admin" || user.tipo === "superadmin") {
     socket.join("admins");
-    console.log(`${user.tipo} ${user.id} unido a sala global "admins"`);
+    console.log(`👑 ${user.tipo} ${user.id} unido a sala global "admins"`);
   }
 
-  //Desconexión de usuario
-  socket.on("disconnect", () => {
+// EVENTOS DE CHAT
+   socket.on("enviar_mensaje", (data) => {
+    const { conversacionId, emisorId, receptorId, contenido } = data;
+    console.log("Mensaje recibido desde cliente:", data);
+
+    // Enviar al receptor directo (si existe)
+    if (receptorId) io.to(`user_${receptorId}`).emit("mensaje_recibido", data);
+
+    // Notificar a todos los administradores conectados
+    io.to("admins").emit("mensaje_recibido", data);
+
+    // Si es una nueva conversación
+    if (!conversacionId) {
+      io.to("admins").emit("nueva_conversacion", {
+        conversacion_id: conversacionId,
+        paciente_id: emisorId,
+        ultimo_mensaje: contenido,
+      });
+    }
+  });
+
+  //DESCONEXIÓN
+   socket.on("disconnect", () => {
     console.log(`Usuario desconectado: ${user.email}`);
+
     if (rtdb) {
       rtdb
         .ref(`usuarios/${user.id}`)
@@ -104,25 +134,26 @@ io.on("connection", (socket) => {
   });
 });
 
-//Uso de JWT en rutas API
+// Middleware de autenticación de rutas HTTP
 app.use((req, res, next) => {
   const rutasPublicas = ["/", "/prueba"];
-  if (req.path.startsWith("/api/auth") || rutasPublicas.includes(req.path))
+  if (req.path.startsWith("/api/auth") || rutasPublicas.includes(req.path)) {
     return next();
+  }
   verifyJWT(req, res, next);
 });
 
-//Rutas API
+// Rutas API
 const chatRoutesFactory = require("./routes/chatRoutes");
 app.use("/api/chat", chatRoutesFactory(io));
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/pacientes", require("./routes/pacienteRoutes"));
-app.use("/api/medicoes", require("./routes/medicoRoutes"));
-app.use("/api/turno", require("./routes/turnoRoutes"));
+app.use("/api/medicos", require("./routes/medicoRoutes"));
+app.use("/api/turno", require("./routes/turnosRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/superadmin", require("./routes/superadminRoutes"));
 
-//Estado del servidor Firebase
+// Estado del servidor en Firebase RTDB
 process.on("SIGINT", async () => {
   if (rtdb) {
     await rtdb.ref("servidor/estado").set({
@@ -134,7 +165,7 @@ process.on("SIGINT", async () => {
   process.exit(0);
 });
 
-//Iniciar el servidor
+// Iniciar el servidor
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, "0.0.0.0", () =>
   console.log(`Backend corriendo en http://192.168.1.9:${PORT}`)

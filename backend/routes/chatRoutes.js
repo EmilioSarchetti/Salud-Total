@@ -6,10 +6,9 @@ module.exports = (io) => {
   const { enviarMensaje, obtenerConversacion, obtenerChatsUsuario, asignarAdmin } = chatController(io);
 
   //rutas de endpoints de chat
-  router.post("/enviar", enviarMensaje);
-  router.get("/mensajes/:conversacion_id", obtenerConversacion);
-  router.get("/usuario/:usuario_id", obtenerChatsUsuario);
-  router.put("/asignar-admin", asignarAdmin);
+router.post("/enviar", enviarMensaje);
+router.get("/mensajes/:conversacion_id", obtenerConversacion);
+router.get("/usuario/:usuario_id", obtenerChatsUsuario);
 
   return router;
 };

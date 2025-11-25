@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../components/axios";
-import { socket } from "../components/socket";
+import { conectarSocket } from "../components/socket";
 const API_URL = import.meta.env.VITE_API_URL;
 
 function Login() {
@@ -11,7 +11,8 @@ function Login() {
   const [cargando, setCargando] = useState(false);
   const navigate = useNavigate();
 
-  //Iniciar sesión
+
+  // Iniciar sesión
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
@@ -23,26 +24,23 @@ function Login() {
         contrasena: password,
       });
 
-      const { token, usuario } = res.data;
+      const { token, usuario } = res.data || {};
 
       if (!usuario || !usuario.tipo) {
-        setError("Usuario no válido o sin tipo asignado");
-        setCargando(false);
-        return;
+        throw new Error("Usuario no válido o sin tipo asignado.");
       }
 
       // Guardar token y datos del usuario
       localStorage.setItem("token", token);
       localStorage.setItem("usuario", JSON.stringify(usuario));
 
-      // Reconectar socket con token actualizado
-      socket.auth = { token };
-      socket.connect();
+      //Conectar socket con token válido
+      conectarSocket();
 
-      console.log(`Usuario autenticado: ${usuario.email}`);
-      console.log(`Tipo de usuario: ${usuario.tipo}`);
+      console.log(` Usuario autenticado: ${usuario.email}`);
+      console.log(` Tipo de usuario: ${usuario.tipo}`);
 
-      //Redirigir según tipo de usuario
+      //  Redirigir según el tipo de usuario
       const rutas = {
         paciente: "/paciente-dashboard",
         medico: "/medico-dashboard",
@@ -53,13 +51,18 @@ function Login() {
       navigate(rutas[usuario.tipo] || "/");
     } catch (err) {
       console.error("Error en login:", err);
-      setError(err.response?.data?.mensaje || "Correo o contraseña incorrectos");
+      const mensaje =
+        err?.response?.data?.mensaje ||
+        err?.message ||
+        " Error desconocido en inicio de sesión.";
+      setError(mensaje);
     } finally {
       setCargando(false);
     }
   };
 
-  //Renderizado del formulario de login
+  // Renderizado del formulario
+
   return (
     <div className="container">
       <h2>Iniciar sesión</h2>
