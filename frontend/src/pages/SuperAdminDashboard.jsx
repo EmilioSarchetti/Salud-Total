@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import "../styles.css";
 import LogoutButton from "../components/LogoutButton";
-import api from "../components/axios"; //cliente con token
+import api from "../components/axios";
 
 function SuperAdminDashboard() {
   const { state } = useLocation();
@@ -62,35 +62,52 @@ function SuperAdminDashboard() {
   };
 
   //registrar médico
-  const registrarMedico = async () => {
-    if (!nombre || !apellido || !email || !contrasena) {
-      setMensaje("Completa todos los campos para registrar al médico.");
-      return;
-    }
+const registrarMedico = async () => {
+  // Validación de campos básicos
+  if (!nombre || !apellido || !email || !contrasena) {
+    setMensaje("Completa todos los campos para registrar al médico.");
+    return;
+  }
 
-    try {
-      const res = await api.post("/superadmin/registrar-medico", {
-        nombre,
-        apellido,
-        email,
-        contrasena,
-        tipo: "medico",
-        especialidades: seleccionadas,
-        horarios,
-      });
+  // Validación obligatoria de especialidades
+  if (!seleccionadas || seleccionadas.length === 0) {
+    setMensaje("Debes seleccionar al menos una especialidad.");
+    return;
+  }
 
-      setMensaje(res.data.mensaje || "Médico registrado correctamente.");
-      setNombre("");
-      setApellido("");
-      setEmail("");
-      setContrasena("");
-      setSeleccionadas([]);
-      setHorarios([]);
-    } catch (err) {
-      console.error("Error al registrar médico:", err);
-      setMensaje("Error al registrar médico.");
-    }
-  };
+  // Validación obligatoria de horarios
+  if (!horarios || horarios.length === 0) {
+    setMensaje("Debes agregar al menos un horario para el médico.");
+    return;
+  }
+
+  try {
+    const res = await api.post("/superadmin/registrar-medico", {
+      nombre,
+      apellido,
+      email,
+      contrasena,
+      tipo: "medico",
+      especialidades: seleccionadas,
+      horarios,
+    });
+
+    setMensaje(res.data.mensaje || "Médico registrado correctamente.");
+
+    // Limpiar campos
+    setNombre("");
+    setApellido("");
+    setEmail("");
+    setContrasena("");
+    setSeleccionadas([]);
+    setHorarios([]);
+
+  } catch (err) {
+    console.error("Error al registrar médico:", err);
+    setMensaje("Error al registrar médico.");
+  }
+};
+
 
   //crear nuevo administrador (secretario)
   const crearAdmin = async () => {
