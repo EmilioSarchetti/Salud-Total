@@ -1,64 +1,192 @@
-Proyecto de Salud Total de:
 
-Pasos para tener tu sistema propio :D
+MANUAL DE INSTALACIÓN – SALUD TOTAL
 
-1) Navegar hasta la terminal del back e instalar dependencias del package.json
-  (npm install bcrypt cors dotenv express firebase-admin jsonwebtoken mysql2 socket.io)
+Backend + Frontend + Base de Datos + Firebase + Cloud Functions
 
-2) Tener mysql con la DB en un comando de prompt unico que esta ubicado en el front "db.text"
+1-----REQUISITOS PREVIOS
 
-   Al mismo tiempo con el comando se crea un usuario de correo "superadmin@saludtotal.com" y contraseña 123 hasheada
+Instalar:
 
-3) crear un archivo ".env" en la carpeta de backend
+Node.js 20+
+https://nodejs.org/
+MySQL 8 (Workbench o consola)
+https://dev.mysql.com/downloads/
+Git
+https://git-scm.com/
+Firebase CLI
+npm install -g firebase-tools
 
-  -controllers
-  -middleware
-  -models
-  -node_modules
-  -permissions
-  -routes
-  index.js
-  .env
 
-y debe tener este texto que debe ser rellenado por tus datos
+2-------DESCARGAR EL PROYECTO
 
-PORT=
+La estructura debe quedar así:
 
-DB_HOST=
-DB_USER=
+SALUD-TOTAL/
+── backend/
+── frontend/
+── functions/
+── firebase.json
+── .firebaserc
+
+3-------INSTALACIÓN DEL BACKEND
+
+Paso 1 — Ir a la carpeta backend:
+cd backend
+
+Paso 2 — Instalar dependencias:
+npm install
+
+Esto instalará: express, mysql2, cors, jsonwebtoken, bcrypt, firebase-admin, socket.io, dotenv, etc.
+
+4------CREAR LA BASE DE DATOS (MySQL)
+
+Paso 1 — Abrir MySQL Workbench o consola.
+
+Paso 2 — Ejecutar archivo BaseCodigo.txt:
+mysql -u root -p < db.txt
+
+Este archivo:
+
+Crea la base de datos salud_total
+
+Crea tablas y relaciones
+
+Inserta usuario inicial:
+email: superadmin@saludtotal.com
+contraseña: admin123 (ya hasheada)
+
+5-------CREAR .env DEL BACKEND
+
+Crear archivo:
+backend/.env
+
+Contenido:
+
+PORT=3001
+
+DB_HOST=localhost
+DB_USER=root
 DB_PASSWORD=
-DB_NAME=
+DB_NAME=salud_total
 
-JWT_SECRET=
+JWT_SECRET=CAMBIAR_ESTE_VALOR
 
-FIREBASE_CREDENTIALS=
-FIREBASE_DATABASE_URL=
+FIREBASE_CREDENTIALS=./permissions/clave-firebase.json
+FIREBASE_DATABASE_URL=CAMBIAR_ESTE_URL
 
-4) Descargar la llave y ubicarla en la carpeta "permissions" con el nombre "clave-firebase.json
+6-------AGREGAR LLAVE FIREBASE
 
-5) Abrir una terminal nueva y navegar al "frontend" y colocar lo siguiente
+Ir a Firebase → Configuración del proyecto → Cuentas de servicio
+Descargar clave privada JSON.
 
-npm create vite@latest frontend
+Crear carpeta:
+backend/permissions/
 
-Project name: ... frontend
-Select a framework: » React
-Select a variant: » JavaScript
+Renombrar la clave a:
+clave-firebase.json
 
-6) Luego de instalar el frame, instalamos dependencias "npm install" y "axios jwt-decode leaflet react-router-dom react-leaflet socket.io-client"
+7-------INICIAR EL BACKEND
 
-7) Crear un archivo en la carpeta raiz llamada .env
+npm run dev
+ó
+node index.js
 
-  -node_modules
-  -public
-  -src
-  .env
+Si funciona verás:
+Servidor en puerto 3001
+Conectado a MySQL
+Conectado a Firebase
 
-Con este contenido que debe ser rellenado por el IPv4 de la red
+8------ INSTALACIÓN DEL FRONTEND
 
-VITE_API_URL=http://192.168.x.xxx:3001
+Paso 1 — Ir a la carpeta frontend:
+cd frontend
 
-   
-8) Para iniciar el sistema, desde el back usar "node index.js" y en otra terminal desde el front usar "npm run dev"
+Paso 2 — Instalar dependencias:
+npm install
 
-Y LISTO A DISFRUTAR :D
-   
+9------CREAR .env DEL FRONTEND
+
+Crear archivo:
+frontend/.env
+
+ipconfig -> IPv4 Address
+
+Contenido:
+VITE_API_URL=http://TU-IP:3001
+
+10 ------INICIAR EL FRONTEND
+
+npm run dev
+
+Aparecerá algo como:
+Local: http://localhost:5173
+
+11 ------- INSTALAR CLOUD FUNCTIONS
+
+Paso 1 — Ir a la carpeta functions:
+cd functions
+
+Paso 2 — Instalar dependencias:
+npm install
+
+Esto instalará automáticamente las siguientes librerías (definidas en functions/package.json):
+
+firebase-functions
+firebase-admin
+axios
+dotenv
+nodemailer
+
+Asegúrate de que el archivo functions/package.json contenga también:
+
+"engines": {
+  "node": "20"
+}
+
+Si no aparece, agregarlo manualmente.
+
+12 ------ CONFIGURAR EL RUNTIME (OBLIGATORIO)
+
+Editar functions/package.json y agregar:
+
+"engines": {
+"node": "20"
+}
+
+13 ------- VERIFICAR CONEXIÓN A FIREBASE
+
+firebase login
+firebase projects:list
+
+14 ------ DEPLOY DE CLOUD FUNCTIONS
+
+Subir solo las funciones:
+firebase deploy --only functions
+
+15 ------ VERIFICAR FUNCIONES EN PRODUCCIÓN
+
+En Firebase Console → Functions deben aparecer:
+
+auditoria-auditarTurno
+correos-correoAltaUsuario
+correos-enviarCorreo
+turnos-recordatorio24h
+
+
+16 ----- TESTEO GENERAL DEL SISTEMA
+
+ Crear usuario
+ Login
+ Crear turno
+ Confirmar turno
+ Chat con admin
+ Ver mapa Leaflet
+ Probar correos de alta
+ Probar recordatorio 24h
+ Probar auditoría del médico
+
+
+FIN DEL MANUAL
+
+
+
