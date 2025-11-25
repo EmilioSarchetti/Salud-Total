@@ -1,6 +1,6 @@
 const db = require('../models/db');
 
-// 1. listar médicos por especialidad
+// Listar médicos por especialidad
 exports.listarMedicosPorEspecialidad = (req, res) => {
   const especialidadId = req.params.especialidadId;
 
@@ -20,7 +20,7 @@ exports.listarMedicosPorEspecialidad = (req, res) => {
   });
 };
 
-//  2. contar pacientes atendidos (filtrando por fecha)
+//  Contar pacientes atendidos (por rango de fechas)
 exports.contarPacientesAtendidos = (req, res) => {
   const medicoId = req.params.medicoId;
   const { desde, hasta } = req.query;
@@ -46,9 +46,8 @@ exports.contarPacientesAtendidos = (req, res) => {
   });
 };
 
-
-// 3. obtener formularios (por nombre del paciente o medico)
-  exports.obtenerFormularios = (req, res) => {
+//  Obtener formularios (por nombre o email del médico)
+exports.obtenerFormularios = (req, res) => {
   const { nombre_completo, medico_email } = req.query;
 
   let sql = `
@@ -83,7 +82,7 @@ exports.contarPacientesAtendidos = (req, res) => {
 };
 
 // 4. listar todos los turnos de pacientes (para gestión secretaria)
-  exports.listarTurnos = (req, res) => {
+exports.listarTurnos = (req, res) => {
   const sql = `
     SELECT 
       t.id, t.fecha, t.hora, t.estado,
@@ -92,7 +91,7 @@ exports.contarPacientesAtendidos = (req, res) => {
       e.nombre AS especialidad
     FROM turnos t
     JOIN usuarios p ON t.paciente_id = p.id
-    JOIN usuarios m ON t.medico_id = m.id
+    LEFT JOIN usuarios m ON t.medico_id = m.id
     JOIN especialidades e ON t.especialidad_id = e.id
     ORDER BY t.fecha DESC, t.hora ASC
   `;
@@ -106,27 +105,44 @@ exports.contarPacientesAtendidos = (req, res) => {
   });
 };
 
-// 5. actualizar estado del turno (ej. “en espera”, “atendido”, “cancelado”)
-  exports.actualizarEstadoTurno = (req, res) => {
+// Actualizar estado del turno
+exports.actualizarEstadoTurno = (req, res) => {
   const { turno_id, nuevo_estado } = req.body;
 
   if (!turno_id || !nuevo_estado) {
     return res.status(400).json({ mensaje: 'Faltan datos para actualizar el turno.' });
   }
 
-  const sql = `
-    UPDATE turnos 
-    SET estado = ? 
-    WHERE id = ?
-  `;
+  const sql = `UPDATE turnos SET estado = ? WHERE id = ?`;
 
   db.query(sql, [nuevo_estado, turno_id], (err) => {
     if (err) {
-      console.error("Error al actualizar estado del turno:", err);
+      console.error("Error al actualizar turno:", err);
       return res.status(500).json({ mensaje: 'Error al actualizar turno.' });
     }
     res.status(200).json({ mensaje: 'Estado del turno actualizado correctamente.' });
   });
 };
 
+// Cancelar turno desde el panel admin
+exports.cancelarTurno = (req, res) => {
+  const turnoId = req.params.id;
+  if (!turnoId) {
+    return res.status(400).json({ mensaje: "ID de turno no proporcionado." });
+  }
 
+  const sql = `UPDATE turnos SET estado = 'cancelado' WHERE id = ?`;
+
+  db.query(sql, [turnoId], (err, resultado) => {
+    if (err) {
+      console.error("Error al cancelar turno:", err);
+      return res.status(500).json({ mensaje: "Error al cancelar el turno." });
+    }
+
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({ mensaje: "Turno no encontrado." });
+    }
+
+    res.status(200).json({ mensaje: "Turno cancelado correctamente." });
+  });
+};
