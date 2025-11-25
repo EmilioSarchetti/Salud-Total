@@ -1,5 +1,7 @@
 const db = require("../models/db");
 const bcrypt = require("bcrypt");
+const axios = require("axios");
+const URL_CORREO_ALTA = "https://us-central1-salud-total-a0d92.cloudfunctions.net/correos-correoAltaUsuario";
 
 // 1.listar médicos por especialidad
 exports.listarMedicosPorEspecialidad = (req, res) => {
@@ -50,6 +52,8 @@ exports.contarPacientesAtendidos = (req, res) => {
 };
 
 // 3.registrar nuevo médico (con hash + especialidades + horarios)
+
+
 exports.registrarMedico = async (req, res) => {
   try {
     const { nombre, apellido, email, contrasena, especialidades, horarios } = req.body;
@@ -66,7 +70,7 @@ exports.registrarMedico = async (req, res) => {
       VALUES (?, ?, ?, ?, 'medico')
     `;
 
-    db.query(sqlUsuario, [nombre, apellido, email, hash], (err, resultado) => {
+    db.query(sqlUsuario, [nombre, apellido, email, hash], async (err, resultado) => {
       if (err) {
         console.error("Error al registrar médico:", err);
         return res
@@ -107,6 +111,18 @@ exports.registrarMedico = async (req, res) => {
           if (err3)
             console.warn("Error al registrar horarios:", err3.message);
         });
+      }
+
+      // AGREGADO — ENVIAR CORREO DE ALTA VIA CLOUD FUNCTION
+      try {
+        await axios.post(URL_CORREO_ALTA, {
+          nombre,
+          email,
+          tipo: "medico"
+        });
+      } catch (errorCorreo) {
+        console.error("Error enviando correo de alta:", errorCorreo.message);
+        // NO hacemos return: el registro igual se considera exitoso
       }
 
       res.status(201).json({ mensaje: "Médico registrado correctamente." });
