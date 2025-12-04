@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../components/axios";
+
 const API_URL = import.meta.env.VITE_API_URL;
 
 function RegistroPaciente() {
@@ -32,7 +33,8 @@ function RegistroPaciente() {
 
     try {
       setCargando(true);
-      const res = await api.post(`${API_URL}/api/auth/registro`, {
+
+      await api.post(`${API_URL}/api/auth/registro`, {
         nombre,
         apellido,
         email,
@@ -45,70 +47,101 @@ function RegistroPaciente() {
       setMensaje("Registro exitoso. Redirigiendo al login...");
       setTimeout(() => navigate("/"), 1500);
     } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.mensaje || "No se pudo registrar el paciente.");
+      setError(
+        err?.response?.data?.error ||
+          err?.response?.data?.mensaje ||
+          "No se pudo registrar el paciente."
+      );
     } finally {
       setCargando(false);
     }
   };
 
   return (
-    <div style={{ padding: "2rem" }}>
-      <h2>Registro de Paciente</h2>
-      <form onSubmit={handleRegistro}>
-        <input
-          type="text"
-          placeholder="Nombre"
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          required
-        />
-        <br />
-        <input
-          type="text"
-          placeholder="Apellido"
-          value={apellido}
-          onChange={(e) => setApellido(e.target.value)}
-          required
-        />
-        <br />
-        <input
-          type="email"
-          placeholder="Correo electrónico"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <br />
-        <input
-          type="password"
-          placeholder="Contraseña"
-          value={contrasena}
-          onChange={(e) => setContrasena(e.target.value)}
-          required
-        />
-        <br />
-        <input
-          type="text"
-          placeholder="Obra Social (opcional)"
-          value={obraSocial}
-          onChange={(e) => setObraSocial(e.target.value)}
-        />
-        <br />
-        <textarea
-          placeholder="Detalles extras (opcional)"
-          value={detallesExtras}
-          onChange={(e) => setDetallesExtras(e.target.value)}
-          rows="4"
-        />
-        <br />
-        <button type="submit" disabled={cargando}>
-          {cargando ? "Registrando..." : "Registrarse"}
-        </button>
-      </form>
+    <div className="auth-bg">
+      <div className="auth-overlay"></div>
 
-      {mensaje && <p style={{ color: "green" }}>{mensaje}</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      <div className="auth-card">
+        <h2>Registro de Paciente</h2>
+
+        <form onSubmit={handleRegistro} className="auth-form">
+          <div className="auth-field">
+            <label>Nombre</label>
+            <input
+              className="auth-input"
+              type="text"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="auth-field">
+            <label>Apellido</label>
+            <input
+              className="auth-input"
+              type="text"
+              value={apellido}
+              onChange={(e) => setApellido(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="auth-field">
+            <label>Correo electrónico</label>
+            <input
+              className="auth-input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="auth-field">
+            <label>Contraseña</label>
+            <input
+              className="auth-input"
+              type="password"
+              value={contrasena}
+              onChange={(e) => setContrasena(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="auth-field">
+            <label>Obra Social (opcional)</label>
+            <input
+              className="auth-input"
+              type="text"
+              value={obraSocial}
+              onChange={(e) => setObraSocial(e.target.value)}
+            />
+          </div>
+
+          <div className="auth-field">
+            <label>Detalles extras (opcional)</label>
+            <textarea
+              className="auth-input"
+              value={detallesExtras}
+              onChange={(e) => setDetallesExtras(e.target.value)}
+              rows="3"
+            />
+          </div>
+
+          <button type="submit" className="auth-btn" disabled={cargando}>
+            {cargando ? "Registrando..." : "Registrarse"}
+          </button>
+        </form>
+
+        {mensaje && <p className="auth-success">{mensaje}</p>}
+        {error && <p className="auth-error">{error}</p>}
+
+        <p className="auth-register">
+          ¿Ya tenés cuenta?{" "}
+          <span onClick={() => navigate("/")}>Iniciar sesión</span>
+        </p>
+      </div>
     </div>
   );
 }
