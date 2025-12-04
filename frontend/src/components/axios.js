@@ -6,7 +6,7 @@ const FRONT_URL = import.meta.env.VITE_FRONTEND_URL;
 
 const api = axios.create({ baseURL: `${API_URL}/api` });
 
-// Rutas públicas (no poner Authorization ni forzar redirect)
+// Rutas públicas 
 const PUBLIC_PATHS = [
   "/auth/login",
   "/auth/registro",
@@ -24,8 +24,10 @@ api.interceptors.request.use(
         const { exp } = jwtDecode(token);
         if (Date.now() >= exp * 1000) {
           localStorage.clear();
-          // no redirijas si estás ya en una pública
-          if (!isPublic) window.location.href = FRONT_URL;
+ 
+          if (!isPublic && window.location.pathname !== "/") {
+  window.location.href = FRONT_URL;
+}
           return Promise.reject("Token expirado");
         }
         config.headers.Authorization = `Bearer ${token}`;
@@ -38,16 +40,18 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// (Opcional) Respuesta 401 global – evita actuar en endpoints públicos
 api.interceptors.response.use(
   (r) => r,
   (err) => {
     const url = err?.config?.url || "";
     const isPublic = PUBLIC_PATHS.some(p => url.startsWith(p));
     if (err?.response?.status === 401 && !isPublic) {
-      localStorage.clear();
-      window.location.href = FRONT_URL;
-    }
+  localStorage.clear();
+  if (window.location.pathname !== "/") {
+    window.location.href = FRONT_URL;
+  }
+}
+
     return Promise.reject(err);
   }
 );

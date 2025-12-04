@@ -6,7 +6,7 @@ const getToken = () => localStorage.getItem("token");
 
 //Inicializamos el socket SIN conectar todavía
 export const socket = io(SOCKET_URL, {
-  autoConnect: false, //Evita conexión inmediata sin token
+  autoConnect: false,
   transports: ["websocket"],
   reconnection: true,
   reconnectionAttempts: 5,

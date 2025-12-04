@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../components/axios";
 import { conectarSocket } from "../components/socket";
+
 const API_URL = import.meta.env.VITE_API_URL;
 
 function Login() {
@@ -11,10 +12,10 @@ function Login() {
   const [cargando, setCargando] = useState(false);
   const navigate = useNavigate();
 
-
-  // Iniciar sesión
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    // Limpia el mensaje sin refrescar la vista
     setError("");
     setCargando(true);
 
@@ -30,17 +31,12 @@ function Login() {
         throw new Error("Usuario no válido o sin tipo asignado.");
       }
 
-      // Guardar token y datos del usuario
+      // Guarda sesión
       localStorage.setItem("token", token);
       localStorage.setItem("usuario", JSON.stringify(usuario));
 
-      //Conectar socket con token válido
       conectarSocket();
 
-      console.log(` Usuario autenticado: ${usuario.email}`);
-      console.log(` Tipo de usuario: ${usuario.tipo}`);
-
-      //  Redirigir según el tipo de usuario
       const rutas = {
         paciente: "/paciente-dashboard",
         medico: "/medico-dashboard",
@@ -50,59 +46,71 @@ function Login() {
 
       navigate(rutas[usuario.tipo] || "/");
     } catch (err) {
-      console.error("Error en login:", err);
       const mensaje =
+        err?.response?.data?.error ||
         err?.response?.data?.mensaje ||
         err?.message ||
-        " Error desconocido en inicio de sesión.";
-      setError(mensaje);
+        "Error desconocido en inicio de sesión.";
+
+      setError(mensaje); 
     } finally {
       setCargando(false);
     }
   };
 
-  // Renderizado del formulario
-
   return (
-    <div className="container">
-      <h2>Iniciar sesión</h2>
-      <form onSubmit={handleLogin}>
-        <label>Correo electrónico:</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+    <div className="auth-bg">
+      <div className="auth-overlay"></div>
 
-        <label>Contraseña:</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+      <div className="auth-card">
+        <h2>Iniciar sesión</h2>
 
-        <button type="submit" disabled={cargando}>
-          {cargando ? "Verificando..." : "Ingresar"}
-        </button>
-      </form>
+        <form className="auth-form" onSubmit={handleLogin}>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+          {/* EMAIL */}
+          <div className="auth-field">
+            <label>Correo electrónico</label>
+            <input
+              type="email"
+              className="auth-input"
+              autoComplete="username"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError(""); 
+              }}
+              required
+            />
+          </div>
 
-      <p>
-        ¿No tenés cuenta?{" "}
-        <span
-          onClick={() => navigate("/registro")}
-          style={{
-            color: "blue",
-            cursor: "pointer",
-            textDecoration: "underline",
-          }}
-        >
-          Registrate aquí
-        </span>
-      </p>
+          {/* CONTRASEÑA */}
+          <div className="auth-field">
+            <label>Contraseña</label>
+            <input
+              type="password"
+              className="auth-input"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError(""); 
+              }}
+              required
+            />
+          </div>
+
+          <button className="auth-btn" type="submit" disabled={cargando}>
+            {cargando ? "Verificando..." : "Ingresar"}
+          </button>
+        </form>
+
+        {error && <p className="auth-error">{error}</p>}
+
+        <p className="auth-register">
+          ¿No tenés cuenta?{" "}
+          <span onClick={() => navigate("/registro")}>Registrate aquí</span>
+        </p>
+      </div>
     </div>
   );
 }
