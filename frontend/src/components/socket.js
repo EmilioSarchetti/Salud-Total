@@ -40,7 +40,7 @@ socket.on("connect_error", (err) => {
   console.error("Error de conexión con Socket.IO:", err.message);
 
   if (err?.message?.includes("Token")) {
-    console.warn("Token inválido o faltante, se requiere nuevo login.");
+    console.warn("Token inválido o faltante, se require nuevo login.");
     localStorage.removeItem("token");
     socket.disconnect();
   }

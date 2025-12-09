@@ -1,6 +1,6 @@
-const express = requiere('express');
+const express = require('express');
 const router = express.Router();
-const turnosController = requiere('../controllers/turnosControllers');
+const turnosController = require('../controllers/turnosControllers');
 
 router.get('/medicoes/ocupados/:medicoId/:fecha', turnosController.obtenerHorariosOcupados);
 

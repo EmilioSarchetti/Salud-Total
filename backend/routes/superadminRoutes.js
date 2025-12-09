@@ -3,7 +3,7 @@ const router = express.Router();
 const superadminController = require('../controllers/superadminController');
 const verificarToken = require('../middleware/authMiddleware'); // 👈 importá middleware
 
-//todas las rutas de superadmin requieren token
+//todas las rutas de superadmin requiren token
 router.use(verificarToken);
 
 //medicos por especialidad

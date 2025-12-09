@@ -27,3 +27,8 @@ backend/node_modules
 *.njsproj
 *.sln
 *.sw?
+
+# Firebase credentials
+permissions/clave-firebase.json
+permissions/*.json
+permissions/
