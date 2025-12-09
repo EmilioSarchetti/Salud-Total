@@ -6,8 +6,9 @@ import api from "../components/axios";
 
 function SuperAdminDashboard() {
   const { state } = useLocation();
-  // puede venir por navegación o lo tomamos del localStorage
-  const superadmin = state?.usuario || JSON.parse(localStorage.getItem("usuario") || "null");
+  const superadmin =
+    state?.usuario ||
+    JSON.parse(localStorage.getItem("usuario") || "null");
 
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
@@ -32,7 +33,12 @@ function SuperAdminDashboard() {
 
   const [activeTab, setActiveTab] = useState("registrar");
 
-  //cargar especialidades (por ahora hardcode)
+  // LIMPIAR ERRORES AL CAMBIAR DE TAB
+  useEffect(() => {
+    setMensaje("");
+  }, [activeTab]);
+
+  // Cargar especialidades
   useEffect(() => {
     setEspecialidades([
       { id: 1, nombre: "Clínica" },
@@ -61,58 +67,49 @@ function SuperAdminDashboard() {
     setHorarios(nuevos);
   };
 
-  //registrar médico
-const registrarMedico = async () => {
-  // Validación de campos básicos
-  if (!nombre || !apellido || !email || !contrasena) {
-    setMensaje("Completa todos los campos para registrar al médico.");
-    return;
-  }
+  // Registrar médico
+  const registrarMedico = async () => {
+    if (!nombre || !apellido || !email || !contrasena) {
+      setMensaje("Completa todos los campos.");
+      return;
+    }
+    if (seleccionadas.length === 0) {
+      setMensaje("Debes seleccionar al menos una especialidad.");
+      return;
+    }
+    if (horarios.length === 0) {
+      setMensaje("Agrega al menos un horario.");
+      return;
+    }
 
-  // Validación obligatoria de especialidades
-  if (!seleccionadas || seleccionadas.length === 0) {
-    setMensaje("Debes seleccionar al menos una especialidad.");
-    return;
-  }
+    try {
+      const res = await api.post("/superadmin/registrar-medico", {
+        nombre,
+        apellido,
+        email,
+        contrasena,
+        tipo: "medico",
+        especialidades: seleccionadas,
+        horarios,
+      });
 
-  // Validación obligatoria de horarios
-  if (!horarios || horarios.length === 0) {
-    setMensaje("Debes agregar al menos un horario para el médico.");
-    return;
-  }
+      setMensaje(res.data.mensaje || "Médico registrado.");
 
-  try {
-    const res = await api.post("/superadmin/registrar-medico", {
-      nombre,
-      apellido,
-      email,
-      contrasena,
-      tipo: "medico",
-      especialidades: seleccionadas,
-      horarios,
-    });
+      setNombre("");
+      setApellido("");
+      setEmail("");
+      setContrasena("");
+      setSeleccionadas([]);
+      setHorarios([]);
+    } catch {
+      setMensaje("Error al registrar médico.");
+    }
+  };
 
-    setMensaje(res.data.mensaje || "Médico registrado correctamente.");
-
-    // Limpiar campos
-    setNombre("");
-    setApellido("");
-    setEmail("");
-    setContrasena("");
-    setSeleccionadas([]);
-    setHorarios([]);
-
-  } catch (err) {
-    console.error("Error al registrar médico:", err);
-    setMensaje("Error al registrar médico.");
-  }
-};
-
-
-  //crear nuevo administrador (secretario)
+  // Crear admin
   const crearAdmin = async () => {
     if (!nombre || !apellido || !email || !contrasena) {
-      setMensaje("Completa todos los campos para crear el administrador.");
+      setMensaje("Completa todos los campos.");
       return;
     }
 
@@ -124,18 +121,17 @@ const registrarMedico = async () => {
         contrasena,
       });
 
-      setMensaje(res.data.mensaje || "Administrador creado correctamente.");
+      setMensaje(res.data.mensaje || "Administrador creado.");
       setNombre("");
       setApellido("");
       setEmail("");
       setContrasena("");
-    } catch (err) {
-      console.error("Error al crear administrador:", err);
+    } catch {
       setMensaje("Error al crear administrador.");
     }
   };
 
-  //buscar médicos por especialidad
+  // Buscar médicos
   const buscarMedicosPorEspecialidad = async () => {
     if (!especialidadId) return;
 
@@ -144,30 +140,23 @@ const registrarMedico = async () => {
         `/superadmin/medicos-por-especialidad/${especialidadId}`
       );
       setMedicos(res.data || []);
-    } catch (err) {
-      console.error("Error al buscar médicos:", err);
+    } catch {
+      setMensaje("Error al buscar médicos.");
     }
   };
 
-  //ver pacientes atendidos por médico en rango
   const obtenerCantidadAtendidos = async (id) => {
     try {
-      const res = await api.get(
-        `/superadmin/pacientes-atendidos/${id}`,
-        {
-          params: {
-            desde: desde || "",
-            hasta: hasta || "",
-          },
-        }
-      );
+      const res = await api.get(`/superadmin/pacientes-atendidos/${id}`, {
+        params: { desde, hasta },
+      });
       setPacientesAtendidos({ id, cantidad: res.data.cantidad });
-    } catch (err) {
-      console.error("Error al obtener pacientes atendidos:", err);
+    } catch {
+      setMensaje("Error al obtener pacientes atendidos.");
     }
   };
 
-  //buscar formularios
+  // Formularios
   const buscarFormularios = async () => {
     try {
       const res = await api.get("/superadmin/formularios", {
@@ -177,110 +166,107 @@ const registrarMedico = async () => {
         },
       });
       setFormularios(res.data || []);
-    } catch (err) {
-      console.error("Error al buscar formularios:", err);
+    } catch {
+      setMensaje("Error al buscar formularios.");
     }
   };
 
   return (
-    <div className="container">
-      <div>
+    <div className="admin-bg">
+      <div className="admin-card">
+
         <LogoutButton />
-      </div>
 
-      <h2>Panel del Super Administrador</h2>
-      <h4>
-        Bienvenido/a, {superadmin?.nombre} {superadmin?.apellido}
-      </h4>
+        <h2 className="dashboard-title">Panel del SuperAdministrador</h2>
+        <h4>
+          Bienvenido/a {superadmin?.nombre} {superadmin?.apellido}
+        </h4>
 
-      <div className="tabs-container">
+        {/* TABS  */}
         <div className="tabs-header">
           <button
             className={`tab-btn ${activeTab === "registrar" ? "active" : ""}`}
-            onClick={() => {
-              setMensaje("");
-              setActiveTab("registrar");
-            }}
+            onClick={() => setActiveTab("registrar")}
           >
             Registrar Médico
           </button>
+
           <button
-            className={`tab-btn ${activeTab === "crear-admin" ? "active" : ""}`}
-            onClick={() => {
-              setMensaje("");
-              setActiveTab("crear-admin");
-            }}
+            className={`tab-btn ${
+              activeTab === "crear-admin" ? "active" : ""
+            }`}
+            onClick={() => setActiveTab("crear-admin")}
           >
-            Crear Administrador
+            Crear Admin
           </button>
+
           <button
             className={`tab-btn ${activeTab === "buscar" ? "active" : ""}`}
-            onClick={() => {
-              setMensaje("");
-              setActiveTab("buscar");
-            }}
+            onClick={() => setActiveTab("buscar")}
           >
             Buscar Médicos
           </button>
+
           <button
             className={`tab-btn ${
               activeTab === "formularios" ? "active" : ""
             }`}
-            onClick={() => {
-              setMensaje("");
-              setActiveTab("formularios");
-            }}
+            onClick={() => setActiveTab("formularios")}
           >
             Formularios
           </button>
         </div>
 
+        {/* ---- CONTENIDO DE TABS ---- */}
         <div className="tab-content">
-          {/* Registrar Médico */}
+
+          {/* REGISTRAR MÉDICO */}
           {activeTab === "registrar" && (
             <>
-              <h3>Registrar Médico</h3>
-              <input
-                type="text"
-                placeholder="Nombre"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-              />
-              <input
-                type="text"
-                placeholder="Apellido"
-                value={apellido}
-                onChange={(e) => setApellido(e.target.value)}
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <input
-                type="password"
-                placeholder="Contraseña"
-                value={contrasena}
-                onChange={(e) => setContrasena(e.target.value)}
-              />
+              <h3 className="subsection-title">Registrar Médico</h3>
 
-              <h4>Especialidades:</h4>
+              <div className="turno-form">
+                <input
+                  type="text"
+                  placeholder="Nombre"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Apellido"
+                  value={apellido}
+                  onChange={(e) => setApellido(e.target.value)}
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <input
+                  type="password"
+                  placeholder="Contraseña"
+                  value={contrasena}
+                  onChange={(e) => setContrasena(e.target.value)}
+                />
+              </div>
+
+              <h4 className="subsection-title">Especialidades</h4>
               {especialidades.map((e) => (
-                <label key={e.id}>
+                <label key={e.id} style={{ display: "block", marginBottom: 6 }}>
                   <input
                     type="checkbox"
-                    value={e.id}
                     checked={seleccionadas.includes(e.id)}
                     onChange={() => toggleEspecialidad(e.id)}
-                  />{" "}
-                  {e.nombre}
+                  />
+                  {" "} {e.nombre}
                 </label>
               ))}
 
-              <h4>Horarios:</h4>
+              <h4 className="subsection-title">Horarios</h4>
               {horarios.map((h, i) => (
-                <div key={i}>
+                <div key={i} className="turno-form">
                   <select
                     value={h.dia_semana}
                     onChange={(e) =>
@@ -288,19 +274,12 @@ const registrarMedico = async () => {
                     }
                   >
                     <option value="">Día</option>
-                    {[
-                      "Lunes",
-                      "Martes",
-                      "Miércoles",
-                      "Jueves",
-                      "Viernes",
-                      "Sábado",
-                    ].map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
+                    {["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"]
+                      .map((d) => (
+                        <option key={d} value={d}>{d}</option>
                     ))}
                   </select>
+
                   <input
                     type="time"
                     value={h.hora_inicio}
@@ -308,6 +287,7 @@ const registrarMedico = async () => {
                       actualizarHorario(i, "hora_inicio", e.target.value)
                     }
                   />
+
                   <input
                     type="time"
                     value={h.hora_fin}
@@ -317,85 +297,109 @@ const registrarMedico = async () => {
                   />
                 </div>
               ))}
+
               <button onClick={agregarHorario}>Agregar Horario</button>
-              <button onClick={registrarMedico}>Registrar Médico</button>
-              {mensaje && <p>{mensaje}</p>}
+              <button className="btn-primary" onClick={registrarMedico}>
+                Registrar Médico
+              </button>
+
+              {mensaje && <p className="ok-msg">{mensaje}</p>}
             </>
           )}
 
-          {/* Crear Administrador */}
+          {/* CREAR ADMIN */}
           {activeTab === "crear-admin" && (
             <>
-              <h3>Registrar Administrador o Secretario</h3>
-              <input
-                type="text"
-                placeholder="Nombre"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-              />
-              <input
-                type="text"
-                placeholder="Apellido"
-                value={apellido}
-                onChange={(e) => setApellido(e.target.value)}
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <input
-                type="password"
-                placeholder="Contraseña"
-                value={contrasena}
-                onChange={(e) => setContrasena(e.target.value)}
-              />
-              <button onClick={crearAdmin}>Crear Administrador</button>
-              {mensaje && <p>{mensaje}</p>}
+              <h3 className="subsection-title">Crear Administrador</h3>
+
+              <div className="turno-form">
+                <input
+                  type="text"
+                  placeholder="Nombre"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Apellido"
+                  value={apellido}
+                  onChange={(e) => setApellido(e.target.value)}
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <input
+                  type="password"
+                  placeholder="Contraseña"
+                  value={contrasena}
+                  onChange={(e) => setContrasena(e.target.value)}
+                />
+              </div>
+
+              <button className="btn-primary" onClick={crearAdmin}>
+                Crear Admin
+              </button>
+
+              {mensaje && <p className="ok-msg">{mensaje}</p>}
             </>
           )}
 
-          {/* Buscar Médicos */}
+          {/* BUSCAR MÉDICOS */}
           {activeTab === "buscar" && (
             <>
-              <h3>Buscar Médicos por Especialidad</h3>
-              <select
-                value={especialidadId}
-                onChange={(e) => setEspecialidadId(e.target.value)}
-              >
-                <option value="">Seleccionar</option>
-                {especialidades.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.nombre}
-                  </option>
-                ))}
-              </select>
-              <button onClick={buscarMedicosPorEspecialidad}>Buscar</button>
+              <h3 className="subsection-title">Buscar Médicos por Especialidad</h3>
+
+              <div className="turno-form">
+                <select
+                  value={especialidadId}
+                  onChange={(e) => setEspecialidadId(e.target.value)}
+                >
+                  <option value="">Seleccionar</option>
+                  {especialidades.map((e) => (
+                    <option key={e.id} value={e.id}>{e.nombre}</option>
+                  ))}
+                </select>
+
+                <button onClick={buscarMedicosPorEspecialidad}>
+                  Buscar
+                </button>
+              </div>
 
               {medicos.length > 0 && (
                 <ul>
                   {medicos.map((m) => (
-                    <li key={m.id}>
-                      {m.nombre} {m.apellido} ({m.email})
+                    <li key={m.id} style={{ marginBottom: 12 }}>
+                      <strong>{m.nombre} {m.apellido}</strong> ({m.email})
                       <br />
-                      Desde:{" "}
-                      <input
-                        type="date"
-                        value={desde}
-                        onChange={(e) => setDesde(e.target.value)}
-                      />
-                      Hasta:{" "}
-                      <input
-                        type="date"
-                        value={hasta}
-                        onChange={(e) => setHasta(e.target.value)}
-                      />
-                      <button onClick={() => obtenerCantidadAtendidos(m.id)}>
+
+                      <div className="turno-form">
+                        <input
+                          type="date"
+                          value={desde}
+                          onChange={(e) => setDesde(e.target.value)}
+                        />
+                        <input
+                          type="date"
+                          value={hasta}
+                          onChange={(e) => setHasta(e.target.value)}
+                        />
+                      </div>
+
+                      <button
+                        onClick={() => obtenerCantidadAtendidos(m.id)}
+                        className="btn-primary"
+                      >
                         Ver pacientes atendidos
                       </button>
+
                       {pacientesAtendidos?.id === m.id && (
-                        <span> → {pacientesAtendidos.cantidad} pacientes</span>
+                        <p>
+                          Pacientes atendidos:{" "}
+                          <strong>{pacientesAtendidos.cantidad}</strong>
+                        </p>
                       )}
                     </li>
                   ))}
@@ -404,36 +408,46 @@ const registrarMedico = async () => {
             </>
           )}
 
-          {/* Formularios */}
+          {/* FORMULARIOS */}
           {activeTab === "formularios" && (
             <>
-              <h3>Buscar Formularios Médicos</h3>
-              <input
-                type="text"
-                placeholder="Nombre del paciente"
-                value={filtroNombre}
-                onChange={(e) => setFiltroNombre(e.target.value)}
-              />
-              <input
-                type="text"
-                placeholder="Correo del médico (opcional)"
-                value={filtromedicoEmail}
-                onChange={(e) => setFiltromedicoEmail(e.target.value)}
-              />
+              <h3 className="subsection-title">Buscar Formularios</h3>
 
-              <button onClick={buscarFormularios}>Buscar Formularios</button>
+              <div className="turno-form">
+                <input
+                  type="text"
+                  placeholder="Nombre del paciente"
+                  value={filtroNombre}
+                  onChange={(e) => setFiltroNombre(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Email del médico"
+                  value={filtromedicoEmail}
+                  onChange={(e) => setFiltromedicoEmail(e.target.value)}
+                />
+              </div>
+
+              <button className="btn-primary" onClick={buscarFormularios}>
+                Buscar
+              </button>
 
               {formularios.length > 0 && (
                 <ul>
                   {formularios.map((f) => (
-                    <li key={f.id}>
-                      <strong>{f.nombre_completo}</strong> –{" "}
-                      {new Date(f.fecha).toLocaleString()}
-                      <pre>{f.contenido}</pre>
+                    <li key={f.id} style={{ marginBottom: 20 }}>
+                      <strong>{f.nombre_completo}</strong>
+                      <br />
+                      <small>{new Date(f.fecha).toLocaleString()}</small>
+                      <pre style={{ whiteSpace: "pre-wrap" }}>
+                        {f.contenido}
+                      </pre>
                     </li>
                   ))}
                 </ul>
               )}
+
+              {mensaje && <p className="ok-msg">{mensaje}</p>}
             </>
           )}
         </div>

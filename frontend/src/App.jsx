@@ -9,11 +9,11 @@ import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 function App() {
   return (
     <Routes>
-      {/*Autenticación */}
+      {/* Autenticación */}
       <Route path="/" element={<Login />} />
       <Route path="/registro" element={<RegistroPaciente />} />
 
-      {/*Dashboards */}
+      {/* Dashboards */}
       <Route path="/admin-dashboard" element={<AdminDashboard />} />
       <Route path="/medico-dashboard" element={<MedicoDashboard />} />
       <Route path="/paciente-dashboard" element={<PacienteDashboard />} />
